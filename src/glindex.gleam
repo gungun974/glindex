@@ -18,13 +18,6 @@ pub type VersionChange
 
 pub type Value
 
-pub type IdbError {
-  Blocked
-  ConstraintError
-  UnableToDecode(List(decode.DecodeError))
-  UnknownError(String)
-}
-
 pub type Query {
   All
   Only(Value)

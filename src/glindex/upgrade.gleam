@@ -26,46 +26,82 @@ pub fn index_options() -> IndexOptions {
 }
 
 pub fn store(
-  tx: Transaction(ReadWrite, VersionChange),
+  _: Transaction(ReadWrite, VersionChange),
   name: String,
 ) -> TransactionStore(Nil) {
-  todo
+  store_ffi(name)
 }
+
+@external(javascript, "./upgrade_ffi.mjs", "store")
+fn store_ffi(name: String) -> TransactionStore(Nil)
 
 pub fn index(
   store: TransactionStore(store_type),
   name: String,
 ) -> TransactionIndex {
-  todo
+  index_ffi(store, name)
 }
+
+@external(javascript, "./upgrade_ffi.mjs", "index")
+fn index_ffi(
+  store: TransactionStore(store_type),
+  name: String,
+) -> TransactionIndex
 
 pub fn create_store(
   tx: Transaction(ReadWrite, VersionChange),
   name: String,
   options: StoreOptions,
 ) -> TransactionStore(Nil) {
-  todo
+  create_store_ffi(tx, name, options)
 }
+
+@external(javascript, "./upgrade_ffi.mjs", "create_store")
+fn create_store_ffi(
+  tx: Transaction(ReadWrite, VersionChange),
+  name: String,
+  options: StoreOptions,
+) -> TransactionStore(Nil)
 
 pub fn delete_store(
   tx: Transaction(ReadWrite, VersionChange),
   name: String,
 ) -> Nil {
-  todo
+  delete_store_ffi(tx, name)
 }
+
+@external(javascript, "./upgrade_ffi.mjs", "delete_store")
+fn delete_store_ffi(
+  tx: Transaction(ReadWrite, VersionChange),
+  name: String,
+) -> Nil
 
 pub fn create_index(
   tx: Transaction(ReadWrite, VersionChange),
   index: TransactionIndex,
   key_path: KeyPath,
   options: IndexOptions,
-) -> Nil {
-  todo
+) -> TransactionIndex {
+  create_index_ffi(tx, index, key_path, options)
 }
+
+@external(javascript, "./upgrade_ffi.mjs", "create_index")
+pub fn create_index_ffi(
+  tx: Transaction(ReadWrite, VersionChange),
+  index: TransactionIndex,
+  key_path: KeyPath,
+  options: IndexOptions,
+) -> TransactionIndex
 
 pub fn delete_index(
   tx: Transaction(ReadWrite, VersionChange),
   index: TransactionIndex,
 ) -> Nil {
-  todo
+  delete_index_ffi(tx, index)
 }
+
+@external(javascript, "./upgrade_ffi.mjs", "delete_index")
+pub fn delete_index_ffi(
+  tx: Transaction(ReadWrite, VersionChange),
+  index: TransactionIndex,
+) -> Nil

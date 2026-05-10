@@ -1,8 +1,10 @@
+import gleam/dynamic
 import gleam/dynamic/decode
+import gleam/list
 import gleam/option
 import glindex.{
-  type Database, type IdbError, type Normal, type Query, type ReadOnly,
-  type ReadWrite, type Value,
+  type Database, type Normal, type Query, type ReadOnly, type ReadWrite,
+  type Value,
 }
 import glindex/cursor.{
   type Cursor, type CursorDirection, type CursorNext, type IndexCursor,
@@ -28,51 +30,115 @@ pub type TransactionStore(store_type)
 
 pub type TransactionIndex
 
+pub type TransactionError {
+  ConstraintError
+  UnableToDecode(List(decode.DecodeError))
+  UnknownError(String)
+}
+
 pub fn prepare(
   db: Database,
   mode: TransactionMode(readonly),
 ) -> TransactionBuilder(readonly) {
-  todo
+  prepare_ffi(db, case mode {
+    TransactionReadOnly -> "readonly"
+    TransactionReadWrite -> "readwrite"
+  })
 }
 
+@external(javascript, "./transaction_ffi.mjs", "prepare")
+pub fn prepare_ffi(db: Database, mode: String) -> TransactionBuilder(readonly)
+
+/// Here I cheat
+/// I don't want the user to be able to get from a Store a TransactionStore
+/// But forget to chain the builder when using begin
+/// So to prevent them error TransactionBuilder is secretly handle in JS
+/// For mutating in place the object
+/// This way there is no issue for the user
 pub fn store(
   builder: TransactionBuilder(readonly),
   store: Store(store_type),
 ) -> #(TransactionBuilder(readonly), TransactionStore(store_type)) {
-  todo
+  store_ffi(builder, store)
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store")
+pub fn store_ffi(
+  builder: TransactionBuilder(readonly),
+  store: Store(store_type),
+) -> #(TransactionBuilder(readonly), TransactionStore(store_type))
 
 pub fn index(
   store: TransactionStore(store_type),
   name: Index(store_type),
 ) -> TransactionIndex {
-  todo
+  index_ffi(store, name)
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index")
+fn index_ffi(
+  store: TransactionStore(store_type),
+  name: Index(store_type),
+) -> TransactionIndex
 
 pub fn begin(
   builder: TransactionBuilder(readonly),
-  next: fn(Result(Transaction(readonly, Normal), IdbError)) -> a,
+  next: fn(Result(Transaction(readonly, Normal), TransactionError)) -> a,
 ) -> a {
-  todo
+  begin_ffi(builder, fn(tx) {
+    case tx {
+      Ok(tx) -> next(Ok(tx))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "begin")
+fn begin_ffi(
+  builder: TransactionBuilder(readonly),
+  next: fn(Result(Transaction(readonly, Normal), String)) -> a,
+) -> a
 
 pub fn abort(tx: Transaction(rw, upgrade)) -> Nil {
-  todo
+  abort_ffi(tx)
 }
 
+@external(javascript, "./transaction_ffi.mjs", "abort")
+fn abort_ffi(tx: Transaction(rw, upgrade)) -> Nil
+
 pub fn commit(tx: Transaction(rw, upgrade)) -> Nil {
-  todo
+  commit_ffi(tx)
 }
+
+@external(javascript, "./transaction_ffi.mjs", "commit")
+fn commit_ffi(tx: Transaction(rw, upgrade)) -> Nil
 
 pub fn store_get(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
   query: Query,
   decoder: decode.Decoder(t),
-  next: fn(Result(t, IdbError)) -> a,
+  next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_get_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, decoder) {
+          Ok(value) -> next(Ok(value))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get")
+fn store_get_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 pub fn store_get_all(
   tx: Transaction(rw, upgrade),
@@ -80,20 +146,63 @@ pub fn store_get_all(
   query: Query,
   count: option.Option(Int),
   decoder: decode.Decoder(t),
-  next: fn(Result(List(t), IdbError)) -> a,
+  next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
-  todo
+  store_get_all_ffi(tx, store, query, count, fn(result) {
+    case result {
+      Ok(raws) -> {
+        let decoded =
+          list.try_map(raws, fn(raw) {
+            case decode.run(raw, decoder) {
+              Ok(v) -> Ok(v)
+              Error(e) -> Error(UnableToDecode(e))
+            }
+          })
+        case decoded {
+          Ok(values) -> next(Ok(values))
+          Error(e) -> next(Error(e))
+        }
+      }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get_all")
+fn store_get_all_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  count: option.Option(Int),
+  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
+) -> a
 
 pub fn store_get_key(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
   query: Query,
   decoder: decode.Decoder(t),
-  next: fn(Result(t, IdbError)) -> a,
+  next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_get_key_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, decoder) {
+          Ok(value) -> next(Ok(value))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get_key")
+fn store_get_key_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 pub fn store_get_all_keys(
   tx: Transaction(rw, upgrade),
@@ -101,76 +210,210 @@ pub fn store_get_all_keys(
   query: Query,
   count: option.Option(Int),
   decoder: decode.Decoder(t),
-  next: fn(Result(List(t), IdbError)) -> a,
+  next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
-  todo
+  store_get_all_keys_ffi(tx, store, query, count, fn(result) {
+    case result {
+      Ok(raws) -> {
+        let decoded =
+          list.try_map(raws, fn(raw) {
+            case decode.run(raw, decoder) {
+              Ok(v) -> Ok(v)
+              Error(e) -> Error(UnableToDecode(e))
+            }
+          })
+        case decoded {
+          Ok(values) -> next(Ok(values))
+          Error(e) -> next(Error(e))
+        }
+      }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get_all_keys")
+fn store_get_all_keys_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  count: option.Option(Int),
+  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
+) -> a
 
 pub fn store_count(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
   query: Query,
-  next: fn(Result(Int, IdbError)) -> a,
+  next: fn(Result(Int, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_count_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(n) -> next(Ok(n))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_count")
+fn store_count_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(Int, String)) -> a,
+) -> a
 
 pub fn store_add(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
   value: Value,
   key_decoder: decode.Decoder(t),
-  next: fn(Result(t, IdbError)) -> a,
+  next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_add_ffi(tx, store, value, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(key) -> next(Ok(key))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error("ConstraintError") -> next(Error(ConstraintError))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_add")
+fn store_add_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 pub fn store_put(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
   value: Value,
   key_decoder: decode.Decoder(t),
-  next: fn(Result(t, IdbError)) -> a,
+  next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_put_ffi(tx, store, value, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(key) -> next(Ok(key))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error("ConstraintError") -> next(Error(ConstraintError))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_put")
+fn store_put_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 pub fn store_delete(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
   query: Query,
-  next: fn(Result(Nil, IdbError)) -> a,
+  next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_delete_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(_) -> next(Ok(Nil))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_delete")
+fn store_delete_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(Nil, String)) -> a,
+) -> a
 
 pub fn store_clear(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
-  next: fn(Result(Nil, IdbError)) -> a,
+  next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_clear_ffi(tx, store, fn(result) {
+    case result {
+      Ok(_) -> next(Ok(Nil))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_clear")
+fn store_clear_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  next: fn(Result(Nil, String)) -> a,
+) -> a
 
 pub fn index_get(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
   query: Query,
   decoder: decode.Decoder(t),
-  next: fn(Result(t, IdbError)) -> a,
+  next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  todo
+  index_get_ffi(tx, index, query, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, decoder) {
+          Ok(value) -> next(Ok(value))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_get")
+fn index_get_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 pub fn index_get_key(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
   query: Query,
   decoder: decode.Decoder(t),
-  next: fn(Result(t, IdbError)) -> a,
+  next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  todo
+  index_get_key_ffi(tx, index, query, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, decoder) {
+          Ok(value) -> next(Ok(value))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_get_key")
+fn index_get_key_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 pub fn index_get_all_keys(
   tx: Transaction(rw, upgrade),
@@ -178,19 +421,58 @@ pub fn index_get_all_keys(
   query: Query,
   count: option.Option(Int),
   decoder: decode.Decoder(t),
-  next: fn(Result(List(t), IdbError)) -> a,
+  next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
-  todo
+  index_get_all_keys_ffi(tx, index, query, count, fn(result) {
+    case result {
+      Ok(raws) -> {
+        let decoded =
+          list.try_map(raws, fn(raw) {
+            case decode.run(raw, decoder) {
+              Ok(v) -> Ok(v)
+              Error(e) -> Error(UnableToDecode(e))
+            }
+          })
+        case decoded {
+          Ok(values) -> next(Ok(values))
+          Error(e) -> next(Error(e))
+        }
+      }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_get_all_keys")
+fn index_get_all_keys_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  count: option.Option(Int),
+  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
+) -> a
 
 pub fn index_count(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
   query: Query,
-  next: fn(Result(Int, IdbError)) -> a,
+  next: fn(Result(Int, TransactionError)) -> a,
 ) -> a {
-  todo
+  index_count_ffi(tx, index, query, fn(result) {
+    case result {
+      Ok(n) -> next(Ok(n))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_count")
+fn index_count_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  next: fn(Result(Int, String)) -> a,
+) -> a
 
 pub fn index_get_all(
   tx: Transaction(rw, upgrade),
@@ -198,10 +480,36 @@ pub fn index_get_all(
   query: Query,
   count: option.Option(Int),
   decoder: decode.Decoder(t),
-  next: fn(Result(List(t), IdbError)) -> a,
+  next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
-  todo
+  index_get_all_ffi(tx, index, query, count, fn(result) {
+    case result {
+      Ok(raws) -> {
+        let decoded =
+          list.try_map(raws, fn(raw) {
+            case decode.run(raw, decoder) {
+              Ok(v) -> Ok(v)
+              Error(e) -> Error(UnableToDecode(e))
+            }
+          })
+        case decoded {
+          Ok(values) -> next(Ok(values))
+          Error(e) -> next(Error(e))
+        }
+      }
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_get_all")
+fn index_get_all_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  count: option.Option(Int),
+  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
+) -> a
 
 pub fn store_open_cursor(
   tx: Transaction(rw, upgrade),
@@ -214,10 +522,38 @@ pub fn store_open_cursor(
     Cursor(WithValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, IdbError)) -> a,
+  next: fn(Result(state, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_open_cursor_ffi(
+    tx,
+    store,
+    query,
+    direction,
+    initial,
+    handler,
+    fn(result) {
+      case result {
+        Ok(state) -> next(Ok(state))
+        Error(name) -> next(Error(UnknownError(name)))
+      }
+    },
+  )
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_open_cursor")
+fn store_open_cursor_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  direction: CursorDirection,
+  initial: state,
+  handler: fn(
+    state,
+    Cursor(WithValue, rw, StoreCursor),
+    fn(state, CursorNext(StoreCursor)) -> Nil,
+  ) -> Nil,
+  next: fn(Result(state, String)) -> a,
+) -> a
 
 pub fn index_open_cursor(
   tx: Transaction(rw, upgrade),
@@ -230,10 +566,38 @@ pub fn index_open_cursor(
     Cursor(WithValue, rw, IndexCursor),
     fn(state, CursorNext(IndexCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, IdbError)) -> a,
+  next: fn(Result(state, TransactionError)) -> a,
 ) -> a {
-  todo
+  index_open_cursor_ffi(
+    tx,
+    index,
+    query,
+    direction,
+    initial,
+    handler,
+    fn(result) {
+      case result {
+        Ok(state) -> next(Ok(state))
+        Error(name) -> next(Error(UnknownError(name)))
+      }
+    },
+  )
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_open_cursor")
+fn index_open_cursor_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  direction: CursorDirection,
+  initial: state,
+  handler: fn(
+    state,
+    Cursor(WithValue, rw, IndexCursor),
+    fn(state, CursorNext(IndexCursor)) -> Nil,
+  ) -> Nil,
+  next: fn(Result(state, String)) -> a,
+) -> a
 
 pub fn store_open_key_cursor(
   tx: Transaction(rw, upgrade),
@@ -246,10 +610,38 @@ pub fn store_open_key_cursor(
     Cursor(WithoutValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, IdbError)) -> a,
+  next: fn(Result(state, TransactionError)) -> a,
 ) -> a {
-  todo
+  store_open_key_cursor_ffi(
+    tx,
+    store,
+    query,
+    direction,
+    initial,
+    handler,
+    fn(result) {
+      case result {
+        Ok(state) -> next(Ok(state))
+        Error(name) -> next(Error(UnknownError(name)))
+      }
+    },
+  )
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_open_key_cursor")
+fn store_open_key_cursor_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  direction: CursorDirection,
+  initial: state,
+  handler: fn(
+    state,
+    Cursor(WithoutValue, rw, StoreCursor),
+    fn(state, CursorNext(StoreCursor)) -> Nil,
+  ) -> Nil,
+  next: fn(Result(state, String)) -> a,
+) -> a
 
 pub fn index_open_key_cursor(
   tx: Transaction(rw, upgrade),
@@ -262,7 +654,35 @@ pub fn index_open_key_cursor(
     Cursor(WithoutValue, rw, IndexCursor),
     fn(state, CursorNext(IndexCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, IdbError)) -> a,
+  next: fn(Result(state, TransactionError)) -> a,
 ) -> a {
-  todo
+  index_open_key_cursor_ffi(
+    tx,
+    index,
+    query,
+    direction,
+    initial,
+    handler,
+    fn(result) {
+      case result {
+        Ok(state) -> next(Ok(state))
+        Error(name) -> next(Error(UnknownError(name)))
+      }
+    },
+  )
 }
+
+@external(javascript, "./transaction_ffi.mjs", "index_open_key_cursor")
+fn index_open_key_cursor_ffi(
+  tx: Transaction(rw, upgrade),
+  index: TransactionIndex,
+  query: Query,
+  direction: CursorDirection,
+  initial: state,
+  handler: fn(
+    state,
+    Cursor(WithoutValue, rw, IndexCursor),
+    fn(state, CursorNext(IndexCursor)) -> Nil,
+  ) -> Nil,
+  next: fn(Result(state, String)) -> a,
+) -> a

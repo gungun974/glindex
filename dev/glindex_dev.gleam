@@ -76,13 +76,13 @@ pub fn main() -> Nil {
         )
 
         use track <- repository.get_track(db, 1)
-        echo track
+        let _ = echo track
 
         use by_artist <- repository.get_all_tracks_by_artist(db, "Queen")
-        echo by_artist
+        let _ = echo by_artist
 
         use short <- repository.get_tracks_shorter_than(db, 200)
-        echo short
+        let _ = echo short
 
         database.close(db)
       }

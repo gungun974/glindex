@@ -1,7 +1,7 @@
 import {
-  isNonEmpty as List$isNonEmpty,
-  first as List$NonEmpty$first,
-  rest as List$NonEmpty$rest,
+  List$isNonEmpty,
+  List$NonEmpty$first,
+  List$NonEmpty$rest,
 } from "./gleam.mjs";
 
 export function null_value() {

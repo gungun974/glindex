@@ -2,11 +2,11 @@ import app/entity.{type Track, Track}
 import gleam/dynamic/decode
 import gleam/option
 import gleam/result
-import glindex.{type Database, type IdbError}
+import glindex.{type Database}
 import glindex/cursor
 import glindex/index
 import glindex/store
-import glindex/transaction
+import glindex/transaction.{type TransactionError}
 
 pub type TrackStore
 
@@ -32,7 +32,7 @@ fn track_decoder() -> decode.Decoder(Track) {
 pub fn get_track(
   db: Database,
   id: Int,
-  next: fn(Result(Track, IdbError)) -> a,
+  next: fn(Result(Track, TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
@@ -60,7 +60,7 @@ pub fn get_track(
 pub fn get_all_tracks_by_artist(
   db: Database,
   artist: String,
-  next: fn(Result(List(Track), IdbError)) -> a,
+  next: fn(Result(List(Track), TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
@@ -91,7 +91,7 @@ pub fn get_all_tracks_by_artist(
 pub fn add_track(
   db: Database,
   track: Track,
-  next: fn(Result(Track, IdbError)) -> a,
+  next: fn(Result(Track, TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
@@ -136,7 +136,7 @@ pub fn add_track(
 pub fn put_track(
   db: Database,
   track: Track,
-  next: fn(Result(Track, IdbError)) -> a,
+  next: fn(Result(Track, TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
@@ -182,7 +182,7 @@ pub fn put_track(
 pub fn get_tracks_shorter_than(
   db: Database,
   max_duration: Int,
-  next: fn(Result(List(Track), IdbError)) -> a,
+  next: fn(Result(List(Track), TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
@@ -218,7 +218,7 @@ pub fn get_tracks_shorter_than(
 pub fn delete_tracks_by_artist(
   db: Database,
   artist: String,
-  next: fn(Result(Nil, IdbError)) -> a,
+  next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
@@ -251,7 +251,7 @@ pub fn rename_artist(
   db: Database,
   old_name: String,
   new_name: String,
-  next: fn(Result(Nil, IdbError)) -> a,
+  next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
@@ -297,7 +297,7 @@ pub fn rename_artist(
 pub fn get_tracks_from_prolific_artists(
   db: Database,
   min_track_count: Int,
-  next: fn(Result(List(Track), IdbError)) -> a,
+  next: fn(Result(List(Track), TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
@@ -342,7 +342,7 @@ pub fn get_tracks_from_prolific_artists(
 pub fn delete_track(
   db: Database,
   id: Int,
-  next: fn(Result(Track, IdbError)) -> a,
+  next: fn(Result(Track, TransactionError)) -> a,
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 

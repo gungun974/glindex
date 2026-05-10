@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "lib": ["ES2020", "DOM"]
+  },
+  "include": ["src/**/*.mjs", "src/**/*.d.ts"]
+}
