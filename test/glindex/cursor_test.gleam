@@ -712,7 +712,7 @@ pub fn cursor_delete_test() -> Promise(Nil) {
                   cursor.Next,
                   Nil,
                   fn(_, cur, next) {
-                    cursor.cursor_delete(cur)
+                    use _ <- cursor.cursor_delete(cur)
                     next(Nil, cursor.continue())
                   },
                 )
@@ -784,7 +784,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
                   cursor.Next,
                   Nil,
                   fn(_, cur, next) {
-                    cursor.cursor_update(
+                    use _ <- cursor.cursor_update(
                       cur,
                       glindex.object([
                         #("id", glindex.int(1)),
@@ -811,3 +811,143 @@ pub fn cursor_update_test() -> Promise(Nil) {
 
 @external(javascript, "./cursor_test_ffi.mjs", "cursor_update_test_assert")
 fn cursor_update_test_assert() -> Promise(Nil)
+
+pub fn cursor_delete_returns_ok_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use _ <- transaction.store_add(
+                  tx,
+                  my_store,
+                  glindex.object([
+                    #("id", glindex.int(1)),
+                    #("name", glindex.string("Alice")),
+                  ]),
+                  decode.int,
+                )
+
+                use _ <- transaction.store_open_cursor(
+                  tx,
+                  my_store,
+                  glindex.All,
+                  cursor.Next,
+                  Nil,
+                  fn(_, cur, next) {
+                    use result <- cursor.cursor_delete(cur)
+                    let assert Ok(Nil) = result
+                    next(Nil, cursor.stop())
+                  },
+                )
+
+                database.close(db)
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+}
+
+pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use _ <- transaction.store_add(
+                  tx,
+                  my_store,
+                  glindex.object([
+                    #("id", glindex.int(1)),
+                    #("name", glindex.string("Alice")),
+                  ]),
+                  decode.int,
+                )
+
+                use _ <- transaction.store_open_cursor(
+                  tx,
+                  my_store,
+                  glindex.All,
+                  cursor.Next,
+                  Nil,
+                  fn(_, cur, next) {
+                    use result <- cursor.cursor_update(
+                      cur,
+                      glindex.object([
+                        #("id", glindex.int(1)),
+                        #("name", glindex.string("Updated")),
+                      ]),
+                    )
+                    let assert Ok(Nil) = result
+                    next(Nil, cursor.stop())
+                  },
+                )
+
+                database.close(db)
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+}

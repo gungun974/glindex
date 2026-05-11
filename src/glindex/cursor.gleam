@@ -47,6 +47,7 @@ pub type Cursor(has_value, mode, source)
 
 pub type CursorError {
   UnableToDecode(List(decode.DecodeError))
+  CursorUnknownError(String)
 }
 
 pub fn cursor_direction(
@@ -130,22 +131,40 @@ pub fn continue_primary_key_values(
   #(key, primary_key)
 }
 
-pub fn cursor_delete(cursor: Cursor(WithValue, ReadWrite, source)) -> Nil {
-  cursor_delete_ffi(cursor)
+pub fn cursor_delete(
+  cursor: Cursor(WithValue, ReadWrite, source),
+  next: fn(Result(Nil, CursorError)) -> Nil,
+) -> Nil {
+  cursor_delete_ffi(cursor, fn(result) {
+    case result {
+      Ok(_) -> next(Ok(Nil))
+      Error(name) -> next(Error(CursorUnknownError(name)))
+    }
+  })
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_delete")
-fn cursor_delete_ffi(cursor: Cursor(WithValue, ReadWrite, source)) -> Nil
+fn cursor_delete_ffi(
+  cursor: Cursor(WithValue, ReadWrite, source),
+  next: fn(Result(Nil, String)) -> Nil,
+) -> Nil
 
 pub fn cursor_update(
   cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,
+  next: fn(Result(Nil, CursorError)) -> Nil,
 ) -> Nil {
-  cursor_update_ffi(cursor, value)
+  cursor_update_ffi(cursor, value, fn(result) {
+    case result {
+      Ok(_) -> next(Ok(Nil))
+      Error(name) -> next(Error(CursorUnknownError(name)))
+    }
+  })
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_update")
 fn cursor_update_ffi(
   cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,
+  next: fn(Result(Nil, String)) -> Nil,
 ) -> Nil

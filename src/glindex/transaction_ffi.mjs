@@ -135,16 +135,6 @@ export function begin(builder, next) {
   }
 }
 
-export function object_store_names(tx) {
-  return domStringListToGleamList(tx.tx.objectStoreNames);
-}
-
-export function index_names(tx, store_name) {
-  return domStringListToGleamList(
-    tx.tx.objectStore(store_name).indexNames,
-  );
-}
-
 export function abort(tx) {
   tx.tx.abort();
   return undefined;

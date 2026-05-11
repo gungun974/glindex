@@ -123,3 +123,31 @@ export async function create_index_with_composite_key_path_test_assert() {
   }
   return undefined;
 }
+
+export async function rename_store_test_assert() {
+  const db = await open_db("Hoi");
+  const store_names = Array.from(db.objectStoreNames);
+  db.close();
+  if (store_names.includes("old_store")) {
+    throw new Error('"old_store" should have been renamed');
+  }
+  if (!store_names.includes("new_store")) {
+    throw new Error('"new_store" not found after rename');
+  }
+  return undefined;
+}
+
+export async function rename_index_test_assert() {
+  const db = await open_db("Hoi");
+  const tx = db.transaction("my_store", "readonly");
+  const store = tx.objectStore("my_store");
+  const index_names = Array.from(store.indexNames);
+  db.close();
+  if (index_names.includes("old_idx")) {
+    throw new Error('"old_idx" should have been renamed');
+  }
+  if (!index_names.includes("new_idx")) {
+    throw new Error('"new_idx" not found after rename');
+  }
+  return undefined;
+}

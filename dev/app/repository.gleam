@@ -233,7 +233,7 @@ pub fn delete_tracks_by_artist(
         cursor.Next,
         Nil,
         fn(_, cur, next) {
-          cursor.cursor_delete(cur)
+          use _ <- cursor.cursor_delete(cur)
           next(Nil, cursor.continue())
         },
       )
@@ -268,7 +268,7 @@ pub fn rename_artist(
         fn(_, cur, next) {
           case cursor.cursor_value(cur, track_decoder()) {
             Ok(track) -> {
-              cursor.cursor_update(
+              use _ <- cursor.cursor_update(
                 cur,
                 glindex.object([
                   #("id", glindex.int(track.id)),

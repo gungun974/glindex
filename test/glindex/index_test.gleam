@@ -510,7 +510,7 @@ pub fn open_cursor_rw_test() -> Promise(Nil) {
             cursor.Next,
             Nil,
             fn(_, cur, next) {
-              cursor.cursor_delete(cur)
+              use _ <- cursor.cursor_delete(cur)
               next(Nil, cursor.continue())
             },
           )
