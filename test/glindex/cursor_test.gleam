@@ -18,7 +18,7 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -109,7 +109,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -210,7 +210,7 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -301,7 +301,7 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -399,7 +399,7 @@ pub fn store_open_key_cursor_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -480,7 +480,7 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -490,7 +490,7 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -570,7 +570,7 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -580,7 +580,7 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -660,7 +660,7 @@ pub fn cursor_delete_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -742,7 +742,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -820,7 +820,7 @@ pub fn cursor_delete_returns_ok_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -887,7 +887,7 @@ pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",

@@ -6,7 +6,7 @@ import glindex/upgrade
 pub fn main() -> Nil {
   database.new("Music", 2)
   |> database.add_version(1, fn(tx) {
-    let store =
+    let assert Ok(store) =
       upgrade.create_store(
         tx,
         "tracks",
@@ -15,29 +15,33 @@ pub fn main() -> Nil {
           auto_increment: True,
         ),
       )
-    upgrade.create_index(
-      tx,
-      upgrade.index(store, "tracks_artist"),
-      upgrade.KeyPath("artist"),
-      upgrade.index_options(),
-    )
-    upgrade.create_index(
-      tx,
-      upgrade.index(store, "tracks_album"),
-      upgrade.KeyPath("album"),
-      upgrade.index_options(),
-    )
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        upgrade.index(store, "tracks_artist"),
+        upgrade.KeyPath("artist"),
+        upgrade.index_options(),
+      )
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        upgrade.index(store, "tracks_album"),
+        upgrade.KeyPath("album"),
+        upgrade.index_options(),
+      )
     Nil
   })
   |> database.add_version(2, fn(tx) {
     let store = upgrade.store(tx, "tracks")
-    upgrade.delete_index(tx, upgrade.index(store, "tracks_album"))
-    upgrade.create_index(
-      tx,
-      upgrade.index(store, "tracks_artist_and_album"),
-      upgrade.CompositeKeyPath(["artist", "album"]),
-      upgrade.index_options(),
-    )
+    let assert Ok(_) =
+      upgrade.delete_index(tx, upgrade.index(store, "tracks_album"))
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        upgrade.index(store, "tracks_artist_and_album"),
+        upgrade.CompositeKeyPath(["artist", "album"]),
+        upgrade.index_options(),
+      )
     Nil
   })
   |> database.open(fn(maybe_db) {

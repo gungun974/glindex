@@ -1,11 +1,50 @@
+//// Cursor-based iteration over store or index records.
+////
+//// Cursors let you walk through a range of records one at a time, optionally
+//// mutating or deleting each one as you go. They are opened via
+//// [`glindex/transaction.store_open_cursor`](./transaction.html#store_open_cursor)
+//// and [`glindex/transaction.index_open_cursor`](./transaction.html#index_open_cursor).
+////
+//// The iteration model is accumulator-based: your handler receives the current
+//// accumulator, the cursor, and a `next` continuation. Return `cursor.continue()`
+//// to advance, `cursor.stop()` to finish early, or `cursor.advance(n)` to skip
+//// ahead. The final accumulator is returned as the `Result` of the cursor call.
+////
+//// ## Example
+////
+//// ```gleam
+//// use result <- transaction.store_open_cursor(
+////   tx,
+////   store,
+////   glindex.All,
+////   cursor.Next,
+////   [],
+////   fn(acc, cur, next) {
+////     case cursor.cursor_value(cur, track_decoder()) {
+////       Ok(track) -> next([track, ..acc], cursor.continue())
+////       Error(_) -> next(acc, cursor.stop())
+////     }
+////   },
+//// )
+//// ```
+
 import gleam/dynamic
 import gleam/dynamic/decode
 import glindex.{type ReadWrite, type Value}
 
+@internal
 pub type StoreCursor
 
+@internal
 pub type IndexCursor
 
+/// The direction in which the cursor walks through the records.
+///
+/// - `Next` - ascending key order, visiting all records.
+/// - `Prev` - descending key order, visiting all records.
+/// - `NextUnique` - ascending key order, skipping duplicate index keys.
+/// - `PrevUnique` - descending key order, skipping duplicate index keys.
+///
 pub type CursorDirection {
   Next
   Prev
@@ -13,6 +52,11 @@ pub type CursorDirection {
   PrevUnique
 }
 
+/// Opaque instruction returned from a cursor handler to control iteration.
+///
+/// Construct one with `continue`, `advance`, `stop`, or
+/// `continue_primary_key`.
+///
 pub opaque type CursorNext(source) {
   Continue
   Advance(Int)
@@ -20,18 +64,29 @@ pub opaque type CursorNext(source) {
   Stop
 }
 
+/// Advance to the next record in the current direction.
+///
 pub fn continue() -> CursorNext(source) {
   Continue
 }
 
+/// Skip forward `n` records from the current position.
+///
 pub fn advance(n: Int) -> CursorNext(source) {
   Advance(n)
 }
 
+/// Stop iteration and return the current accumulator.
+///
 pub fn stop() -> CursorNext(source) {
   Stop
 }
 
+/// Jump to the record with the given index key and primary key.
+///
+/// Only valid for index cursors (`IndexCursor`). Useful for efficiently
+/// seeking within a sorted index without visiting every intermediate record.
+///
 pub fn continue_primary_key(
   key: Value,
   primary_key: Value,
@@ -39,17 +94,25 @@ pub fn continue_primary_key(
   ContinuePrimaryKey(key:, primary_key:)
 }
 
+@internal
 pub type WithValue
 
+@internal
 pub type WithoutValue
 
+/// The cursor handle passed to your iteration handler.
+///
 pub type Cursor(has_value, mode, source)
 
+/// Errors that can occur inside a cursor handler.
+///
 pub type CursorError {
   UnableToDecode(List(decode.DecodeError))
   CursorUnknownError(String)
 }
 
+/// Return the direction the cursor is walking.
+///
 pub fn cursor_direction(
   cursor: Cursor(value, mode, source),
 ) -> CursorDirection {
@@ -64,6 +127,8 @@ pub fn cursor_direction(
 @external(javascript, "./cursor_ffi.mjs", "cursor_direction")
 fn cursor_direction_ffi(cursor: Cursor(value, mode, source)) -> String
 
+/// Return the key of the record at the current cursor position.
+///
 pub fn cursor_key(cursor: Cursor(value, mode, source)) -> Value {
   cursor_key_ffi(cursor)
 }
@@ -71,6 +136,12 @@ pub fn cursor_key(cursor: Cursor(value, mode, source)) -> Value {
 @external(javascript, "./cursor_ffi.mjs", "cursor_key")
 fn cursor_key_ffi(cursor: Cursor(value, mode, source)) -> Value
 
+/// Return the primary key of the record at the current cursor position.
+///
+/// For store cursors this is the same as `cursor_key`. For index cursors it
+/// is the underlying record key in the object store, which may differ from
+/// the indexed key.
+///
 pub fn cursor_primary_key(cursor: Cursor(value, mode, source)) -> Value {
   cursor_primary_key_ffi(cursor)
 }
@@ -78,6 +149,11 @@ pub fn cursor_primary_key(cursor: Cursor(value, mode, source)) -> Value {
 @external(javascript, "./cursor_ffi.mjs", "cursor_primary_key")
 fn cursor_primary_key_ffi(cursor: Cursor(value, mode, source)) -> Value
 
+/// Decode and return the record at the current cursor position.
+///
+/// Only available on cursors opened with `store_open_cursor` or
+/// `index_open_cursor` (`WithValue`).
+///
 pub fn cursor_value(
   cursor: Cursor(WithValue, mode, source),
   decoder: decode.Decoder(t),
@@ -91,6 +167,7 @@ pub fn cursor_value(
 @external(javascript, "./cursor_ffi.mjs", "cursor_value")
 fn cursor_value_ffi(cursor: Cursor(WithValue, mode, source)) -> dynamic.Dynamic
 
+@internal
 pub fn is_continue(next: CursorNext(source)) -> Bool {
   case next {
     Continue -> True
@@ -98,6 +175,7 @@ pub fn is_continue(next: CursorNext(source)) -> Bool {
   }
 }
 
+@internal
 pub fn is_stop(next: CursorNext(source)) -> Bool {
   case next {
     Stop -> True
@@ -105,6 +183,7 @@ pub fn is_stop(next: CursorNext(source)) -> Bool {
   }
 }
 
+@internal
 pub fn is_advance(next: CursorNext(source)) -> Bool {
   case next {
     Advance(_) -> True
@@ -112,11 +191,13 @@ pub fn is_advance(next: CursorNext(source)) -> Bool {
   }
 }
 
+@internal
 pub fn advance_steps(next: CursorNext(source)) -> Int {
   let assert Advance(n) = next
   n
 }
 
+@internal
 pub fn is_continue_primary_key(next: CursorNext(source)) -> Bool {
   case next {
     ContinuePrimaryKey(_, _) -> True
@@ -124,6 +205,7 @@ pub fn is_continue_primary_key(next: CursorNext(source)) -> Bool {
   }
 }
 
+@internal
 pub fn continue_primary_key_values(
   next: CursorNext(source),
 ) -> #(Value, Value) {
@@ -131,6 +213,11 @@ pub fn continue_primary_key_values(
   #(key, primary_key)
 }
 
+/// Delete the record at the current cursor position.
+///
+/// Only available on read-write cursors (`ReadWrite`) that carry a value
+/// (`WithValue`).
+///
 pub fn cursor_delete(
   cursor: Cursor(WithValue, ReadWrite, source),
   next: fn(Result(Nil, CursorError)) -> Nil,
@@ -149,6 +236,11 @@ fn cursor_delete_ffi(
   next: fn(Result(Nil, String)) -> Nil,
 ) -> Nil
 
+/// Replace the record at the current cursor position with `value`.
+///
+/// Only available on read-write cursors (`ReadWrite`) that carry a value
+/// (`WithValue`). The key of the record does not change.
+///
 pub fn cursor_update(
   cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,

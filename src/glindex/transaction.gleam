@@ -1,3 +1,39 @@
+//// Classic IndexedDB-style transactions over one or more object stores.
+////
+//// All database operations run inside a transaction. Build one with
+//// `prepare`, register the stores you need with `store`, then call `begin`
+//// to start it. Every operation takes a `next` continuation so calls chain
+//// naturally with Gleam's `use` syntax.
+////
+//// ## Example
+////
+//// ```gleam
+//// import glindex
+//// import glindex/transaction
+////
+//// pub fn get_track(db, id, next) {
+////   let tx = transaction.prepare(db, transaction.read_only)
+////   let #(tx, store) = transaction.store(tx, track_store)
+////   use tx <- transaction.begin(tx)
+////   case tx {
+////     Ok(tx) -> {
+////       use result <- transaction.store_get(
+////         tx,
+////         store,
+////         glindex.Only(glindex.int(id)),
+////         track_decoder(),
+////       )
+////       next(result)
+////     }
+////     Error(e) -> next(Error(e))
+////   }
+//// }
+//// ```
+////
+//// IndexedDB auto-commits a transaction as soon as no more requests are
+//// pending, so you generally do not need to call `commit` explicitly. Call
+//// `abort` to roll back all changes made in the transaction.
+
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/list
@@ -11,29 +47,69 @@ import glindex/cursor.{
   type StoreCursor, type WithValue, type WithoutValue,
 }
 
+/// The access mode of a transaction, carried as a phantom type.
+///
+/// Use the pre-built constants `read_only` and `read_write` instead of
+/// constructing these directly.
+///
 pub type TransactionMode(readonly) {
   TransactionReadOnly
   TransactionReadWrite
 }
 
+/// Pre-built constant for a read-only transaction.
+///
+/// Multiple read-only transactions can run concurrently; prefer this mode
+/// whenever you do not need to write.
+///
 pub const read_only: TransactionMode(ReadOnly) = TransactionReadOnly
 
+/// Pre-built constant for a read-write transaction.
+///
 pub const read_write: TransactionMode(ReadWrite) = TransactionReadWrite
 
 pub type TransactionBuilder(readonly)
 
+/// Durability hint passed to the browser when creating the transaction.
+///
+/// - `DurabilityDefault` - let the browser choose.
+/// - `DurabilityStrict` - guarantee writes are flushed to disk before
+///   `on_complete` fires (slower, safer).
+/// - `DurabilityRelaxed` - allow the OS to decide when to flush (faster,
+///   risks data loss on power failure).
+///
 pub type TransactionDurability {
   DurabilityDefault
   DurabilityStrict
   DurabilityRelaxed
 }
 
+/// Handle to an active transaction.
+///
 pub type Transaction(readonly, upgrade)
 
+/// Handle to an object store obtained after `store` is called on a builder.
+///
+/// The phantom type `store_type` must match the `Store` used to obtain it,
+/// preventing indexes from one store being used with another store's handle.
+///
 pub type TransactionStore(store_type)
 
+/// Handle to an index obtained via `transaction.index`.
+///
 pub type TransactionIndex
 
+/// Errors returned by store and index operations.
+///
+/// - `ConstraintError` - a uniqueness constraint was violated.
+/// - `DataError` - the key or value was invalid for the operation.
+/// - `InvalidStateError` - the transaction or store is in an unexpected state.
+/// - `NotFoundError` - no record matched the query.
+/// - `QuotaExceededError` - the browser's storage quota has been reached.
+/// - `TransactionInactiveError` - the transaction has already committed or aborted.
+/// - `UnableToDecode` - the record was found but the decoder failed.
+/// - `UnknownError` - an unexpected browser error occurred.
+///
 pub type TransactionError {
   ConstraintError
   DataError
@@ -56,6 +132,11 @@ fn map_error(name: String) -> TransactionError {
   }
 }
 
+/// Create a transaction builder for the given database and access mode.
+///
+/// Chain `store` calls to register every store you will access, then call
+/// `begin` to start the transaction.
+///
 pub fn prepare(
   db: Database,
   mode: TransactionMode(readonly),
@@ -67,14 +148,19 @@ pub fn prepare(
 }
 
 @external(javascript, "./transaction_ffi.mjs", "prepare")
-pub fn prepare_ffi(db: Database, mode: String) -> TransactionBuilder(readonly)
+fn prepare_ffi(db: Database, mode: String) -> TransactionBuilder(readonly)
 
-/// Here I cheat
-/// I don't want the user to be able to get from a Store a TransactionStore
-/// But forget to chain the builder when using begin
-/// So to prevent them error TransactionBuilder is secretly handle in JS
-/// For mutating in place the object
-/// This way there is no issue for the user
+/// Register an object store on the builder and receive a typed handle.
+///
+/// Returns a tuple of `#(builder, store_handle)`.
+///
+/// ```gleam
+/// let tx = transaction.prepare(db, transaction.read_write)
+/// let #(tx, tracks) = transaction.store(tx, track_store)
+/// let #(tx, artists) = transaction.store(tx, artist_store)
+/// use tx <- transaction.begin(tx)
+/// ```
+///
 pub fn store(
   builder: TransactionBuilder(readonly),
   store: Store(store_type),
@@ -83,11 +169,16 @@ pub fn store(
 }
 
 @external(javascript, "./transaction_ffi.mjs", "store")
-pub fn store_ffi(
+fn store_ffi(
   builder: TransactionBuilder(readonly),
   store: Store(store_type),
 ) -> #(TransactionBuilder(readonly), TransactionStore(store_type))
 
+/// Obtain an index handle from a store handle.
+///
+/// The `Index(store_type)` and `TransactionStore(store_type)` must share the
+/// same phantom type.
+///
 pub fn index(
   store: TransactionStore(store_type),
   name: Index(store_type),
@@ -101,6 +192,8 @@ fn index_ffi(
   name: Index(store_type),
 ) -> TransactionIndex
 
+/// Set the durability hint for the transaction.
+///
 pub fn with_durability(
   builder: TransactionBuilder(readonly),
   durability: TransactionDurability,
@@ -118,6 +211,8 @@ fn with_durability_ffi(
   durability: String,
 ) -> TransactionBuilder(readonly)
 
+/// Register a handler called when the transaction completes successfully.
+///
 pub fn on_complete(
   builder: TransactionBuilder(readonly),
   handler: fn() -> Nil,
@@ -131,6 +226,10 @@ fn on_complete_ffi(
   handler: fn() -> Nil,
 ) -> TransactionBuilder(readonly)
 
+/// Register a handler called when the transaction fails with an error.
+///
+/// The handler receives the browser error name as a string.
+///
 pub fn on_error(
   builder: TransactionBuilder(readonly),
   handler: fn(String) -> Nil,
@@ -144,6 +243,11 @@ fn on_error_ffi(
   handler: fn(String) -> Nil,
 ) -> TransactionBuilder(readonly)
 
+/// Register a handler called when the transaction is aborted.
+///
+/// The handler receives `Some(error_name)` if the abort was triggered by an
+/// error, or `None` if it was triggered by `abort`.
+///
 pub fn on_abort(
   builder: TransactionBuilder(readonly),
   handler: fn(Option(String)) -> Nil,
@@ -157,6 +261,11 @@ fn on_abort_ffi(
   handler: fn(Option(String)) -> Nil,
 ) -> TransactionBuilder(readonly)
 
+/// Start the transaction and pass the result to `next`.
+///
+/// Returns `Ok(transaction)` if the transaction was opened successfully, or
+/// `Error(TransactionError)` if it could not be started.
+///
 pub fn begin(
   builder: TransactionBuilder(readonly),
   next: fn(Result(Transaction(readonly, Normal), TransactionError)) -> a,
@@ -175,6 +284,8 @@ fn begin_ffi(
   next: fn(Result(Transaction(readonly, Normal), String)) -> a,
 ) -> a
 
+/// Abort the transaction, rolling back all writes made so far.
+///
 pub fn abort(tx: Transaction(rw, upgrade)) -> Nil {
   abort_ffi(tx)
 }
@@ -182,6 +293,12 @@ pub fn abort(tx: Transaction(rw, upgrade)) -> Nil {
 @external(javascript, "./transaction_ffi.mjs", "abort")
 fn abort_ffi(tx: Transaction(rw, upgrade)) -> Nil
 
+/// Commit the transaction immediately without waiting for all pending
+/// requests to settle.
+///
+/// In most cases you do not need to call this - IndexedDB commits
+/// automatically once there are no more pending requests.
+///
 pub fn commit(tx: Transaction(rw, upgrade)) -> Nil {
   commit_ffi(tx)
 }
@@ -189,6 +306,10 @@ pub fn commit(tx: Transaction(rw, upgrade)) -> Nil {
 @external(javascript, "./transaction_ffi.mjs", "commit")
 fn commit_ffi(tx: Transaction(rw, upgrade)) -> Nil
 
+/// Read the first record matching `query` from `store` and decode it.
+///
+/// Returns `Error(NotFoundError)` when no record matches.
+///
 pub fn store_get(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -217,6 +338,10 @@ fn store_get_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Read all records matching `query` from `store` and decode each one.
+///
+/// Pass `option.Some(n)` for `count` to cap the result at `n` records.
+///
 pub fn store_get_all(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -254,6 +379,10 @@ fn store_get_all_ffi(
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
 ) -> a
 
+/// Read the primary key of the first record matching `query` in `store`.
+///
+/// Returns `Error(NotFoundError)` when no record matches.
+///
 pub fn store_get_key(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -282,6 +411,10 @@ fn store_get_key_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Read the primary keys of all records matching `query` in `store`.
+///
+/// Pass `option.Some(n)` for `count` to cap the result at `n` keys.
+///
 pub fn store_get_all_keys(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -319,6 +452,8 @@ fn store_get_all_keys_ffi(
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
 ) -> a
 
+/// Count the records matching `query` in `store`.
+///
 pub fn store_count(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -341,6 +476,11 @@ fn store_count_ffi(
   next: fn(Result(Int, String)) -> a,
 ) -> a
 
+/// Insert a new record into `store` and return its generated primary key.
+///
+/// Returns `Error(ConstraintError)` if the record's key already exists and
+/// the store does not allow duplicates.
+///
 pub fn store_add(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
@@ -368,6 +508,11 @@ fn store_add_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Insert or replace a record in `store` and return its primary key.
+///
+/// If a record with the same key already exists it is overwritten. Use
+/// `store_add` instead when you want an error on duplicate keys.
+///
 pub fn store_put(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
@@ -395,6 +540,11 @@ fn store_put_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Insert a new record with an explicit out-of-line key.
+///
+/// Use this when the store was created with `OutOfLineKey` and you manage
+/// keys yourself rather than letting IndexedDB generate them.
+///
 pub fn store_add_with_out_of_line_key(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
@@ -424,6 +574,8 @@ fn store_add_with_out_of_line_key_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Insert or replace a record with an explicit out-of-line key.
+///
 pub fn store_put_with_out_of_line_key(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
@@ -453,6 +605,8 @@ fn store_put_with_out_of_line_key_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Delete all records matching `query` from `store`.
+///
 pub fn store_delete(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
@@ -475,6 +629,8 @@ fn store_delete_ffi(
   next: fn(Result(Nil, String)) -> a,
 ) -> a
 
+/// Delete every record in `store`.
+///
 pub fn store_clear(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),
@@ -495,6 +651,10 @@ fn store_clear_ffi(
   next: fn(Result(Nil, String)) -> a,
 ) -> a
 
+/// Read the first record matching `query` via `index` and decode it.
+///
+/// Returns `Error(NotFoundError)` when no record matches.
+///
 pub fn index_get(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
@@ -523,6 +683,10 @@ fn index_get_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Read the primary key of the first record matching `query` via `index`.
+///
+/// Returns `Error(NotFoundError)` when no record matches.
+///
 pub fn index_get_key(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
@@ -551,6 +715,10 @@ fn index_get_key_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+/// Read the primary keys of all records matching `query` via `index`.
+///
+/// Pass `option.Some(n)` for `count` to cap the result at `n` keys.
+///
 pub fn index_get_all_keys(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
@@ -588,6 +756,8 @@ fn index_get_all_keys_ffi(
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
 ) -> a
 
+/// Count the records matching `query` via `index`.
+///
 pub fn index_count(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
@@ -610,6 +780,10 @@ fn index_count_ffi(
   next: fn(Result(Int, String)) -> a,
 ) -> a
 
+/// Read all records matching `query` via `index` and decode each one.
+///
+/// Pass `option.Some(n)` for `count` to cap the result at `n` records.
+///
 pub fn index_get_all(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
@@ -647,6 +821,16 @@ fn index_get_all_ffi(
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
 ) -> a
 
+/// Open a full-value cursor over `store` and iterate with `handler`.
+///
+/// The `initial` value seeds the accumulator. The `handler` receives the
+/// current accumulator, the cursor, and a `next` continuation. Call
+/// `cursor.continue()` to advance, `cursor.stop()` to finish early, or
+/// `cursor.advance(n)` to skip records.
+///
+/// On a `ReadWrite` transaction the cursor also supports `cursor.cursor_delete`
+/// and `cursor.cursor_update`.
+///
 pub fn store_open_cursor(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -691,6 +875,11 @@ fn store_open_cursor_ffi(
   next: fn(Result(state, String)) -> a,
 ) -> a
 
+/// Open a full-value cursor over `index` and iterate with `handler`.
+///
+/// Same semantics as `store_open_cursor` but walks records sorted by the
+/// index key rather than by primary key.
+///
 pub fn index_open_cursor(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,
@@ -735,6 +924,12 @@ fn index_open_cursor_ffi(
   next: fn(Result(state, String)) -> a,
 ) -> a
 
+/// Open a key-only cursor over `store` and iterate with `handler`.
+///
+/// Faster than `store_open_cursor` when you only need the key (e.g. for
+/// counting or deleting by key). The cursor does not carry the record value,
+/// so `cursor_value` is not available.
+///
 pub fn store_open_key_cursor(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),
@@ -779,6 +974,11 @@ fn store_open_key_cursor_ffi(
   next: fn(Result(state, String)) -> a,
 ) -> a
 
+/// Open a key-only cursor over `index` and iterate with `handler`.
+///
+/// Faster than `index_open_cursor` when only the index key or primary key is
+/// needed.
+///
 pub fn index_open_key_cursor(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex,

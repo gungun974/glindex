@@ -21,7 +21,7 @@ pub fn store_add_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -81,7 +81,7 @@ pub fn store_put_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -151,7 +151,7 @@ pub fn store_get_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -220,7 +220,7 @@ pub fn store_get_all_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -302,7 +302,7 @@ pub fn store_get_key_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -371,7 +371,7 @@ pub fn store_get_all_keys_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -453,7 +453,7 @@ pub fn store_count_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -527,7 +527,7 @@ pub fn store_delete_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -593,7 +593,7 @@ pub fn store_clear_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -665,7 +665,7 @@ pub fn index_get_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -675,7 +675,7 @@ pub fn index_get_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -743,7 +743,7 @@ pub fn index_get_key_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -753,7 +753,7 @@ pub fn index_get_key_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -821,7 +821,7 @@ pub fn index_get_all_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -831,7 +831,7 @@ pub fn index_get_all_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -912,7 +912,7 @@ pub fn index_get_all_keys_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -922,7 +922,7 @@ pub fn index_get_all_keys_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -1003,7 +1003,7 @@ pub fn index_count_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1013,7 +1013,7 @@ pub fn index_count_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -1090,7 +1090,7 @@ pub fn abort_transaction_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1152,7 +1152,7 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1220,7 +1220,7 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1289,7 +1289,7 @@ pub fn with_durability_relaxed_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1352,7 +1352,7 @@ pub fn on_complete_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1419,7 +1419,7 @@ pub fn on_error_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1494,7 +1494,7 @@ pub fn store_add_with_out_of_line_key_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1554,7 +1554,7 @@ pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1617,7 +1617,7 @@ pub fn store_get_not_found_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1671,7 +1671,7 @@ pub fn store_get_key_not_found_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1725,7 +1725,7 @@ pub fn index_get_not_found_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1735,7 +1735,7 @@ pub fn index_get_not_found_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -1788,7 +1788,7 @@ pub fn index_get_key_not_found_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let s =
+      let assert Ok(s) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -1798,7 +1798,7 @@ pub fn index_get_key_not_found_test() -> Promise(Nil) {
           ),
         )
       let idx = upgrade.index(s, "name_idx")
-      let _ =
+      let assert Ok(_) =
         upgrade.create_index(
           tx,
           idx,
@@ -1984,7 +1984,7 @@ pub fn store_add_data_error_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
@@ -2037,7 +2037,7 @@ pub fn store_add_constraint_error_test() -> Promise(Nil) {
   promise.new(fn(resolve) {
     database.new("Hoi", 1)
     |> database.add_version(1, fn(tx) {
-      let _ =
+      let assert Ok(_) =
         upgrade.create_store(
           tx,
           "my_store",
