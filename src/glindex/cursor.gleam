@@ -130,15 +130,15 @@ pub fn continue_primary_key_values(
   #(key, primary_key)
 }
 
-pub fn cursor_delete(cursor: Cursor(value, ReadWrite, source)) -> Nil {
+pub fn cursor_delete(cursor: Cursor(WithValue, ReadWrite, source)) -> Nil {
   cursor_delete_ffi(cursor)
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_delete")
-fn cursor_delete_ffi(cursor: Cursor(value, ReadWrite, source)) -> Nil
+fn cursor_delete_ffi(cursor: Cursor(WithValue, ReadWrite, source)) -> Nil
 
 pub fn cursor_update(
-  cursor: Cursor(value, ReadWrite, source),
+  cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,
 ) -> Nil {
   cursor_update_ffi(cursor, value)
@@ -146,6 +146,6 @@ pub fn cursor_update(
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_update")
 fn cursor_update_ffi(
-  cursor: Cursor(value, ReadWrite, source),
+  cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,
 ) -> Nil
