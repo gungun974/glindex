@@ -69,3 +69,43 @@ export async function blocked_database_test_assert() {
     throw new Error(`Database version is ${db.version}, expected 1`);
   return undefined;
 }
+
+export async function on_blocked_callback_test_assert() {
+  const databases = await indexedDB.databases();
+  const db = databases.find((d) => d.name === "Hoi");
+  if (!db) throw new Error('Database "Hoi" not found');
+  if (db.version !== 1)
+    throw new Error(`Database version is ${db.version}, expected 1`);
+  return undefined;
+}
+
+export async function on_blocking_callback_test_assert() {
+  const databases = await indexedDB.databases();
+  const db = databases.find((d) => d.name === "Hoi");
+  if (!db) throw new Error('Database "Hoi" not found');
+  if (db.version !== 1)
+    throw new Error(`Database version is ${db.version}, expected 1`);
+  return undefined;
+}
+
+export async function databases_test_assert() {
+  return undefined;
+}
+
+export async function delete_test_assert() {
+  const databases = await indexedDB.databases();
+  const exists = databases.some((db) => db.name === "Hoi");
+  if (exists) {
+    throw new Error('Database "Hoi" should have been deleted but still exists');
+  }
+  return undefined;
+}
+
+export async function delete_blocked_test_assert() {
+  const databases = await indexedDB.databases();
+  const db = databases.find((d) => d.name === "Hoi");
+  if (!db) throw new Error('Database "Hoi" not found');
+  if (db.version !== 1)
+    throw new Error(`Database version is ${db.version}, expected 1`);
+  return undefined;
+}
