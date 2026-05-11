@@ -19,10 +19,10 @@ import {
   Query$Bound$upper,
   Query$Bound$exclusive_lower,
   Query$Bound$exclusive_upper,
+  Store$Store$name,
+  Index$Index$name,
 } from "../glindex.mjs";
 
-import { Store$Store$name } from "./store.mjs";
-import { Index$Index$name } from "./index.mjs";
 import {
   CursorDirection$isPrev,
   CursorDirection$isNextUnique,
@@ -113,7 +113,8 @@ export function commit(tx) {
 export function store_get(tx, store, query, next) {
   const request = tx.tx.objectStore(store).get(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_get_all(tx, store, query, count, next) {
@@ -121,13 +122,15 @@ export function store_get_all(tx, store, query, count, next) {
     .objectStore(store)
     .getAll(queryToIDBKeyRange(query), optionToValue(count));
   request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_get_key(tx, store, query, next) {
   const request = tx.tx.objectStore(store).getKey(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_get_all_keys(tx, store, query, count, next) {
@@ -135,37 +138,43 @@ export function store_get_all_keys(tx, store, query, count, next) {
     .objectStore(store)
     .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
   request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_count(tx, store, query, next) {
   const request = tx.tx.objectStore(store).count(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_add(tx, store, value, next) {
   const request = tx.tx.objectStore(store).add(value);
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_put(tx, store, value, next) {
   const request = tx.tx.objectStore(store).put(value);
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_delete(tx, store, query, next) {
   const request = tx.tx.objectStore(store).delete(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(undefined));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_clear(tx, store, next) {
   const request = tx.tx.objectStore(store).clear();
   request.onsuccess = () => next(Result$Ok(undefined));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function index_get(tx, index, query, next) {
@@ -174,7 +183,8 @@ export function index_get(tx, index, query, next) {
     .index(index.name)
     .get(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function index_get_key(tx, index, query, next) {
@@ -183,7 +193,8 @@ export function index_get_key(tx, index, query, next) {
     .index(index.name)
     .getKey(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function index_get_all_keys(tx, index, query, count, next) {
@@ -192,7 +203,8 @@ export function index_get_all_keys(tx, index, query, count, next) {
     .index(index.name)
     .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
   request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function index_count(tx, index, query, next) {
@@ -201,7 +213,8 @@ export function index_count(tx, index, query, next) {
     .index(index.name)
     .count(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function index_get_all(tx, index, query, count, next) {
@@ -210,7 +223,8 @@ export function index_get_all(tx, index, query, count, next) {
     .index(index.name)
     .getAll(queryToIDBKeyRange(query), optionToValue(count));
   request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 function runCursor(request, initial, handler, next) {
@@ -235,7 +249,8 @@ function runCursor(request, initial, handler, next) {
       }
     });
   };
-  request.onerror = () => next(Result$Error(request.error?.name ?? "UnknownError"));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_open_cursor(

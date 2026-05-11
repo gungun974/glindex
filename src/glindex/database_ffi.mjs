@@ -1,13 +1,15 @@
 import { Result$Ok, Result$Error } from "../gleam.mjs";
 
-const indexedDB =
-  window.indexedDB ||
-  window.mozIndexedDB ||
-  window.webkitIndexedDB ||
-  window.msIndexedDB ||
-  window.shimIndexedDB;
-
 export function open_database(name, version, on_upgrade_needed, next) {
+  const indexedDB =
+    (typeof window !== "undefined" &&
+      (window.indexedDB ||
+        window.mozIndexedDB ||
+        window.webkitIndexedDB ||
+        window.msIndexedDB ||
+        window.shimIndexedDB)) ||
+    (typeof globalThis !== "undefined" && globalThis.indexedDB);
+
   const request = indexedDB.open(name, version);
 
   request.onerror = () => {

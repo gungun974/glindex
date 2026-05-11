@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "checkJs": false,
-    "lib": ["ES2020", "DOM"]
+    "lib": ["ES2015", "DOM"]
   },
   "include": ["src/**/*.mjs", "src/**/*.d.ts"]
 }

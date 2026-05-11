@@ -3,15 +3,13 @@ import gleam/dynamic/decode
 import gleam/list
 import gleam/option
 import glindex.{
-  type Database, type Normal, type Query, type ReadOnly, type ReadWrite,
-  type Value,
+  type Database, type Index, type Normal, type Query, type ReadOnly,
+  type ReadWrite, type Store, type Value,
 }
 import glindex/cursor.{
   type Cursor, type CursorDirection, type CursorNext, type IndexCursor,
   type StoreCursor, type WithValue, type WithoutValue,
 }
-import glindex/index.{type Index}
-import glindex/store.{type Store}
 
 pub type TransactionMode(readonly) {
   TransactionReadOnly

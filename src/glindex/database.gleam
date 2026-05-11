@@ -1,3 +1,4 @@
+import gleam/bool
 import gleam/int
 import gleam/list
 import glindex.{type Database}
@@ -6,6 +7,7 @@ import glindex/transaction
 pub type DatabaseError {
   Blocked
   UnknownError(String)
+  VersionError
 }
 
 pub opaque type DatabaseMigration {
@@ -45,9 +47,31 @@ pub fn open(
   builder: DatabaseBuilder,
   next: fn(Result(Database, DatabaseError)) -> a,
 ) {
+  use <- bool.lazy_guard(builder.version <= 0, fn() {
+    next(Error(VersionError))
+    Nil
+  })
+
+  use <- bool.lazy_guard(
+    list.any(builder.migrations, fn(migration) { migration.version <= 0 }),
+    fn() {
+      next(Error(VersionError))
+      Nil
+    },
+  )
+
   let migrations =
     builder.migrations
     |> list.sort(fn(a, b) { int.compare(a.version, b.version) })
+
+  use <- bool.lazy_guard(
+    list.window_by_2(migrations)
+      |> list.any(fn(pair) { pair.0.version == pair.1.version }),
+    fn() {
+      next(Error(VersionError))
+      Nil
+    },
+  )
 
   open_database(
     builder.name,
@@ -70,6 +94,7 @@ pub fn open(
       case result {
         Ok(db) -> next(Ok(db))
         Error("BlockedError") -> next(Error(Blocked))
+        Error("VersionError") -> next(Error(VersionError))
         Error(name) -> next(Error(UnknownError(name)))
       }
     },

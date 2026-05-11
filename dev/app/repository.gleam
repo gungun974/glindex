@@ -2,21 +2,17 @@ import app/entity.{type Track, Track}
 import gleam/dynamic/decode
 import gleam/option
 import gleam/result
-import glindex.{type Database}
+import glindex.{type Database, type Index, type Store, Index, Store}
 import glindex/cursor
-import glindex/index
-import glindex/store
 import glindex/transaction.{type TransactionError}
 
 pub type TrackStore
 
-pub const track_store: store.Store(TrackStore) = store.Store("tracks")
+pub const track_store: Store(TrackStore) = Store("tracks")
 
-pub const track_artist_index: index.Index(TrackStore) = index.Index(
-  "tracks_artist",
-)
+pub const track_artist_index: Index(TrackStore) = Index("tracks_artist")
 
-pub const track_artist_album_index: index.Index(TrackStore) = index.Index(
+pub const track_artist_album_index: Index(TrackStore) = Index(
   "tracks_artist_and_album",
 )
 

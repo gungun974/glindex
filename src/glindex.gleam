@@ -6,6 +6,14 @@ import gleam/list
 import gleam/time/calendar.{type Date, type TimeOfDay}
 import gleam/time/timestamp.{type Timestamp}
 
+pub type Store(store_type) {
+  Store(name: String)
+}
+
+pub type Index(store_type) {
+  Index(name: String)
+}
+
 pub type Database
 
 pub type ReadOnly
