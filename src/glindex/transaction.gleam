@@ -623,6 +623,26 @@ fn index_get_all_ffi(
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
 ) -> a
 
+pub fn object_store_names(tx: Transaction(rw, upgrade)) -> List(String) {
+  object_store_names_ffi(tx)
+}
+
+@external(javascript, "./transaction_ffi.mjs", "object_store_names")
+fn object_store_names_ffi(tx: Transaction(rw, upgrade)) -> List(String)
+
+pub fn index_names(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+) -> List(String) {
+  index_names_ffi(tx, store)
+}
+
+@external(javascript, "./transaction_ffi.mjs", "index_names")
+fn index_names_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+) -> List(String)
+
 pub fn store_open_cursor(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any),

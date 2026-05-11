@@ -63,6 +63,14 @@ function queryToIDBKeyRange(query) {
   );
 }
 
+function domStringListToGleamList(list) {
+  let result = List$Empty();
+  for (let i = list.length - 1; i >= 0; i--) {
+    result = List$NonEmpty(list[i], result);
+  }
+  return result;
+}
+
 function gleamListFromArray(arr) {
   let list = List$Empty();
   for (let i = arr.length - 1; i >= 0; i--) {
@@ -125,6 +133,16 @@ export function begin(builder, next) {
   } catch (e) {
     return next(Result$Error(e.name ?? "UnknownError"));
   }
+}
+
+export function object_store_names(tx) {
+  return domStringListToGleamList(tx.tx.objectStoreNames);
+}
+
+export function index_names(tx, store_name) {
+  return domStringListToGleamList(
+    tx.tx.objectStore(store_name).indexNames,
+  );
 }
 
 export function abort(tx) {
