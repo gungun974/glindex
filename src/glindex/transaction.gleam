@@ -22,6 +22,12 @@ pub const read_write: TransactionMode(ReadWrite) = TransactionReadWrite
 
 pub type TransactionBuilder(readonly)
 
+pub type TransactionDurability {
+  DurabilityDefault
+  DurabilityStrict
+  DurabilityRelaxed
+}
+
 pub type Transaction(readonly, upgrade)
 
 pub type TransactionStore(store_type)
@@ -78,6 +84,49 @@ fn index_ffi(
   store: TransactionStore(store_type),
   name: Index(store_type),
 ) -> TransactionIndex
+
+pub fn with_durability(
+  builder: TransactionBuilder(readonly),
+  durability: TransactionDurability,
+) -> TransactionBuilder(readonly) {
+  with_durability_ffi(builder, case durability {
+    DurabilityDefault -> "default"
+    DurabilityStrict -> "strict"
+    DurabilityRelaxed -> "relaxed"
+  })
+}
+
+@external(javascript, "./transaction_ffi.mjs", "with_durability")
+fn with_durability_ffi(
+  builder: TransactionBuilder(readonly),
+  durability: String,
+) -> TransactionBuilder(readonly)
+
+pub fn on_complete(
+  builder: TransactionBuilder(readonly),
+  handler: fn() -> Nil,
+) -> TransactionBuilder(readonly) {
+  on_complete_ffi(builder, handler)
+}
+
+@external(javascript, "./transaction_ffi.mjs", "on_complete")
+fn on_complete_ffi(
+  builder: TransactionBuilder(readonly),
+  handler: fn() -> Nil,
+) -> TransactionBuilder(readonly)
+
+pub fn on_error(
+  builder: TransactionBuilder(readonly),
+  handler: fn(String) -> Nil,
+) -> TransactionBuilder(readonly) {
+  on_error_ffi(builder, handler)
+}
+
+@external(javascript, "./transaction_ffi.mjs", "on_error")
+fn on_error_ffi(
+  builder: TransactionBuilder(readonly),
+  handler: fn(String) -> Nil,
+) -> TransactionBuilder(readonly)
 
 pub fn begin(
   builder: TransactionBuilder(readonly),

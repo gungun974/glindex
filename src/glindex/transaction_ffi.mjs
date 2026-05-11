@@ -76,7 +76,29 @@ function optionToValue(opt) {
 }
 
 export function prepare(db, mode) {
-  return { db, mode, stores: [] };
+  return {
+    db,
+    mode,
+    stores: [],
+    durability: "default",
+    oncomplete: null,
+    onerror: null,
+  };
+}
+
+export function with_durability(builder, durability) {
+  builder.durability = durability;
+  return builder;
+}
+
+export function on_complete(builder, handler) {
+  builder.oncomplete = handler;
+  return builder;
+}
+
+export function on_error(builder, handler) {
+  builder.onerror = handler;
+  return builder;
 }
 
 export function store(builder, store) {
@@ -93,7 +115,12 @@ export function index(store, index) {
 export function begin(builder, next) {
   try {
     const db = builder.db;
-    const tx = db.transaction(builder.stores, builder.mode);
+    const tx = db.transaction(builder.stores, builder.mode, {
+      durability: builder.durability,
+    });
+    if (builder.oncomplete) tx.oncomplete = () => builder.oncomplete();
+    if (builder.onerror)
+      tx.onerror = () => builder.onerror(tx.error?.name ?? "UnknownError");
     return next(Result$Ok({ db, tx }));
   } catch (e) {
     return next(Result$Error(e.name ?? "UnknownError"));

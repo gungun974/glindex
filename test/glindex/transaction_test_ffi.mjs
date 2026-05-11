@@ -209,6 +209,42 @@ export async function store_with_no_key_path_test_assert() {
   return undefined;
 }
 
+export async function with_durability_relaxed_test_assert() {
+  const db = await open_db("Hoi");
+  const record = await get_record(db, "my_store", 1);
+  db.close();
+  if (!record || record.name !== "Alice") {
+    throw new Error(
+      `Expected record {id: 1, name: "Alice"} with relaxed durability, got ${JSON.stringify(record)}`,
+    );
+  }
+  return undefined;
+}
+
+export async function on_complete_test_assert() {
+  const db = await open_db("Hoi");
+  const record = await get_record(db, "my_store", 1);
+  db.close();
+  if (!record || record.name !== "Alice") {
+    throw new Error(
+      `Expected oncomplete to have fired and committed the record, got ${JSON.stringify(record)}`,
+    );
+  }
+  return undefined;
+}
+
+export async function on_error_test_assert() {
+  const db = await open_db("Hoi");
+  const count = await count_records(db, "my_store");
+  db.close();
+  if (count !== 0) {
+    throw new Error(
+      `Expected 0 records after transaction error aborted it, got ${count}`,
+    );
+  }
+  return undefined;
+}
+
 export async function store_with_composite_key_path_test_assert() {
   const db = await open_db("Hoi");
   const record = await new Promise((resolve, reject) => {
