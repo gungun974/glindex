@@ -3,6 +3,7 @@ import gleam/dynamic/decode
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/order.{type Order}
 import gleam/time/calendar.{type Date, type TimeOfDay}
 import gleam/time/timestamp.{type Timestamp}
 
@@ -152,3 +153,14 @@ pub fn calendar_time_of_day(time: TimeOfDay) -> Value {
 
 @external(javascript, "./glindex_ffi.mjs", "coerce")
 fn coerce_value(a: anything) -> Value
+
+pub fn cmp(a: Value, b: Value) -> Order {
+  case cmp_ffi(a, b) {
+    1 -> order.Gt
+    -1 -> order.Lt
+    _ -> order.Eq
+  }
+}
+
+@external(javascript, "./glindex_ffi.mjs", "cmp")
+fn cmp_ffi(a: Value, b: Value) -> Int

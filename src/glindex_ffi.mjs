@@ -32,3 +32,7 @@ export function array(list) {
   }
   return result;
 }
+
+export function cmp(a, b) {
+  return indexedDB.cmp(a, b);
+}
