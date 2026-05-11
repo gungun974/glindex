@@ -2011,3 +2011,132 @@ pub fn on_abort_error_test() -> Promise(Nil) {
 
 @external(javascript, "./transaction_test_ffi.mjs", "on_abort_error_test_assert")
 fn on_abort_error_test_assert() -> Promise(Nil)
+
+pub fn store_add_data_error_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use result <- transaction.store_add(
+                  tx,
+                  my_store,
+                  glindex.object([#("name", glindex.string("Alice"))]),
+                  decode.int,
+                )
+
+                let assert Error(transaction.DataError) = result
+
+                database.close(db)
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_add_data_error_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "store_add_data_error_test_assert")
+fn store_add_data_error_test_assert() -> Promise(Nil)
+
+pub fn store_add_constraint_error_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use _ <- transaction.store_add(
+                  tx,
+                  my_store,
+                  glindex.object([
+                    #("id", glindex.int(1)),
+                    #("name", glindex.string("Alice")),
+                  ]),
+                  decode.int,
+                )
+
+                use result <- transaction.store_add(
+                  tx,
+                  my_store,
+                  glindex.object([
+                    #("id", glindex.int(1)),
+                    #("name", glindex.string("Duplicate")),
+                  ]),
+                  decode.int,
+                )
+
+                let assert Error(transaction.ConstraintError) = result
+
+                database.close(db)
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_add_constraint_error_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "store_add_constraint_error_test_assert")
+fn store_add_constraint_error_test_assert() -> Promise(Nil)

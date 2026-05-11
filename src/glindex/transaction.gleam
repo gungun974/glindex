@@ -36,10 +36,24 @@ pub type TransactionIndex
 
 pub type TransactionError {
   ConstraintError
+  DataError
+  InvalidStateError
   NotFoundError
   QuotaExceededError
+  TransactionInactiveError
   UnableToDecode(List(decode.DecodeError))
   UnknownError(String)
+}
+
+fn map_error(name: String) -> TransactionError {
+  case name {
+    "ConstraintError" -> ConstraintError
+    "DataError" -> DataError
+    "InvalidStateError" -> InvalidStateError
+    "QuotaExceededError" -> QuotaExceededError
+    "TransactionInactiveError" -> TransactionInactiveError
+    _ -> UnknownError(name)
+  }
 }
 
 pub fn prepare(
@@ -190,7 +204,7 @@ pub fn store_get(
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
       Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -226,7 +240,7 @@ pub fn store_get_all(
           Error(e) -> next(Error(e))
         }
       }
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -255,7 +269,7 @@ pub fn store_get_key(
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
       Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -291,7 +305,7 @@ pub fn store_get_all_keys(
           Error(e) -> next(Error(e))
         }
       }
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -314,7 +328,7 @@ pub fn store_count(
   store_count_ffi(tx, store, query, fn(result) {
     case result {
       Ok(n) -> next(Ok(n))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -341,9 +355,7 @@ pub fn store_add(
           Ok(key) -> next(Ok(key))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
-      Error("ConstraintError") -> next(Error(ConstraintError))
-      Error("QuotaExceededError") -> next(Error(QuotaExceededError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -370,9 +382,7 @@ pub fn store_put(
           Ok(key) -> next(Ok(key))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
-      Error("ConstraintError") -> next(Error(ConstraintError))
-      Error("QuotaExceededError") -> next(Error(QuotaExceededError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -400,9 +410,7 @@ pub fn store_add_with_out_of_line_key(
           Ok(k) -> next(Ok(k))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
-      Error("ConstraintError") -> next(Error(ConstraintError))
-      Error("QuotaExceededError") -> next(Error(QuotaExceededError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -431,9 +439,7 @@ pub fn store_put_with_out_of_line_key(
           Ok(k) -> next(Ok(k))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
-      Error("ConstraintError") -> next(Error(ConstraintError))
-      Error("QuotaExceededError") -> next(Error(QuotaExceededError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -456,7 +462,7 @@ pub fn store_delete(
   store_delete_ffi(tx, store, query, fn(result) {
     case result {
       Ok(_) -> next(Ok(Nil))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -477,7 +483,7 @@ pub fn store_clear(
   store_clear_ffi(tx, store, fn(result) {
     case result {
       Ok(_) -> next(Ok(Nil))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -504,7 +510,7 @@ pub fn index_get(
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
       Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -532,7 +538,7 @@ pub fn index_get_key(
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
       Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -568,7 +574,7 @@ pub fn index_get_all_keys(
           Error(e) -> next(Error(e))
         }
       }
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -591,7 +597,7 @@ pub fn index_count(
   index_count_ffi(tx, index, query, fn(result) {
     case result {
       Ok(n) -> next(Ok(n))
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -627,7 +633,7 @@ pub fn index_get_all(
           Error(e) -> next(Error(e))
         }
       }
-      Error(name) -> next(Error(UnknownError(name)))
+      Error(name) -> next(Error(map_error(name)))
     }
   })
 }
@@ -664,7 +670,7 @@ pub fn store_open_cursor(
     fn(result) {
       case result {
         Ok(state) -> next(Ok(state))
-        Error(name) -> next(Error(UnknownError(name)))
+        Error(name) -> next(Error(map_error(name)))
       }
     },
   )
@@ -708,7 +714,7 @@ pub fn index_open_cursor(
     fn(result) {
       case result {
         Ok(state) -> next(Ok(state))
-        Error(name) -> next(Error(UnknownError(name)))
+        Error(name) -> next(Error(map_error(name)))
       }
     },
   )
@@ -752,7 +758,7 @@ pub fn store_open_key_cursor(
     fn(result) {
       case result {
         Ok(state) -> next(Ok(state))
-        Error(name) -> next(Error(UnknownError(name)))
+        Error(name) -> next(Error(map_error(name)))
       }
     },
   )
@@ -796,7 +802,7 @@ pub fn index_open_key_cursor(
     fn(result) {
       case result {
         Ok(state) -> next(Ok(state))
-        Error(name) -> next(Error(UnknownError(name)))
+        Error(name) -> next(Error(map_error(name)))
       }
     },
   )

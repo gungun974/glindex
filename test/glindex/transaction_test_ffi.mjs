@@ -320,3 +320,11 @@ export async function on_abort_manual_test_assert() {
 export async function on_abort_error_test_assert() {
   return undefined;
 }
+
+export async function store_add_data_error_test_assert() {
+  return undefined;
+}
+
+export async function store_add_constraint_error_test_assert() {
+  return undefined;
+}
