@@ -5,6 +5,8 @@ import {
   List$Empty,
 } from "../gleam.mjs";
 
+import { Option$Some, Option$None } from "../../gleam_stdlib/gleam/option.mjs";
+
 import {
   Query$isAll,
   Query$isOnly,
@@ -91,6 +93,7 @@ export function prepare(db, mode) {
     durability: "default",
     oncomplete: null,
     onerror: null,
+    onabort: null,
   };
 }
 
@@ -106,6 +109,11 @@ export function on_complete(builder, handler) {
 
 export function on_error(builder, handler) {
   builder.onerror = handler;
+  return builder;
+}
+
+export function on_abort(builder, handler) {
+  builder.onabort = handler;
   return builder;
 }
 
@@ -129,6 +137,9 @@ export function begin(builder, next) {
     if (builder.oncomplete) tx.oncomplete = () => builder.oncomplete();
     if (builder.onerror)
       tx.onerror = () => builder.onerror(tx.error?.name ?? "UnknownError");
+    if (builder.onabort)
+      tx.onabort = () =>
+        builder.onabort(tx.error ? Option$Some(tx.error.name) : Option$None());
     return next(Result$Ok({ db, tx }));
   } catch (e) {
     return next(Result$Error(e.name ?? "UnknownError"));

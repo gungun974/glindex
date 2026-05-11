@@ -312,3 +312,11 @@ export async function store_with_composite_key_path_test_assert() {
   }
   return undefined;
 }
+
+export async function on_abort_manual_test_assert() {
+  return undefined;
+}
+
+export async function on_abort_error_test_assert() {
+  return undefined;
+}

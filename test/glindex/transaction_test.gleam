@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
 import gleam/list
-import gleam/option
+import gleam/option.{None, Some}
 import glindex.{Index, Store}
 import glindex/database
 import glindex/transaction
@@ -1872,3 +1872,142 @@ pub fn index_get_key_not_found_test() -> Promise(Nil) {
 
 @external(javascript, "./transaction_test_ffi.mjs", "index_get_key_not_found_test_assert")
 fn index_get_key_not_found_test_assert() -> Promise(Nil)
+
+pub fn on_abort_manual_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+  let #(mark, was_called) = make_tracker()
+  let received_error =
+    promise.new(fn(resolve) {
+      database.new("Hoi", 1)
+      |> database.add_version(1, fn(tx) {
+        let _ =
+          upgrade.create_store(
+            tx,
+            "my_store",
+            upgrade.StoreOptions(
+              key_path: upgrade.KeyPath("id"),
+              auto_increment: False,
+            ),
+          )
+        Nil
+      })
+      |> database.open(fn(maybe_db) {
+        case maybe_db {
+          Error(_) -> resolve(None)
+          Ok(db) -> {
+            let builder = transaction.prepare(db, transaction.read_write)
+            let builder =
+              transaction.on_abort(builder, fn(err) {
+                mark()
+                database.close(db)
+                resolve(err)
+              })
+            let #(builder, _my_store) =
+              transaction.store(builder, Store("my_store"))
+            transaction.begin(builder, fn(maybe_tx) {
+              case maybe_tx {
+                Error(_) -> {
+                  database.close(db)
+                  resolve(None)
+                }
+                Ok(tx) -> {
+                  transaction.abort(tx)
+                  Nil
+                }
+              }
+            })
+          }
+        }
+      })
+    })
+
+  //! Assert
+  received_error
+  |> promise.await(fn(err) {
+    let assert True = was_called()
+    let assert None = err
+    on_abort_manual_test_assert()
+  })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "on_abort_manual_test_assert")
+fn on_abort_manual_test_assert() -> Promise(Nil)
+
+pub fn on_abort_error_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+  let #(mark, was_called) = make_tracker()
+  let received_error =
+    promise.new(fn(resolve) {
+      database.new("Hoi", 1)
+      |> database.add_version(1, fn(tx) {
+        let _ =
+          upgrade.create_store(
+            tx,
+            "my_store",
+            upgrade.StoreOptions(
+              key_path: upgrade.KeyPath("id"),
+              auto_increment: False,
+            ),
+          )
+        Nil
+      })
+      |> database.open(fn(maybe_db) {
+        case maybe_db {
+          Error(_) -> resolve(None)
+          Ok(db) -> {
+            let builder = transaction.prepare(db, transaction.read_write)
+            let builder =
+              transaction.on_abort(builder, fn(err) {
+                mark()
+                database.close(db)
+                resolve(err)
+              })
+            let #(builder, my_store) =
+              transaction.store(builder, Store("my_store"))
+            transaction.begin(builder, fn(maybe_tx) {
+              case maybe_tx {
+                Error(_) -> {
+                  database.close(db)
+                  resolve(None)
+                }
+                Ok(tx) -> {
+                  use _ <- transaction.store_add(
+                    tx,
+                    my_store,
+                    glindex.object([
+                      #("id", glindex.int(1)),
+                      #("name", glindex.string("Alice")),
+                    ]),
+                    decode.int,
+                  )
+                  use _ <- transaction.store_add(
+                    tx,
+                    my_store,
+                    glindex.object([
+                      #("id", glindex.int(1)),
+                      #("name", glindex.string("Duplicate")),
+                    ]),
+                    decode.int,
+                  )
+                  Nil
+                }
+              }
+            })
+          }
+        }
+      })
+    })
+
+  //! Assert
+  received_error
+  |> promise.await(fn(err) {
+    let assert True = was_called()
+    let assert Some(_error_name) = err
+    on_abort_error_test_assert()
+  })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "on_abort_error_test_assert")
+fn on_abort_error_test_assert() -> Promise(Nil)

@@ -1,7 +1,7 @@
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/list
-import gleam/option
+import gleam/option.{type Option}
 import glindex.{
   type Database, type Index, type Normal, type Query, type ReadOnly,
   type ReadWrite, type Store, type Value,
@@ -128,6 +128,19 @@ pub fn on_error(
 fn on_error_ffi(
   builder: TransactionBuilder(readonly),
   handler: fn(String) -> Nil,
+) -> TransactionBuilder(readonly)
+
+pub fn on_abort(
+  builder: TransactionBuilder(readonly),
+  handler: fn(Option(String)) -> Nil,
+) -> TransactionBuilder(readonly) {
+  on_abort_ffi(builder, handler)
+}
+
+@external(javascript, "./transaction_ffi.mjs", "on_abort")
+fn on_abort_ffi(
+  builder: TransactionBuilder(readonly),
+  handler: fn(Option(String)) -> Nil,
 ) -> TransactionBuilder(readonly)
 
 pub fn begin(
