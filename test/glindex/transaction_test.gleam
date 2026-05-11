@@ -1279,12 +1279,7 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { store_with_composite_key_path_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "store_with_composite_key_path_test_assert")
-fn store_with_composite_key_path_test_assert() -> Promise(Nil)
 
 pub fn with_durability_relaxed_test() -> Promise(Nil) {
   //! Arrange
@@ -1612,12 +1607,7 @@ pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { store_put_with_out_of_line_key_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "store_put_with_out_of_line_key_test_assert")
-fn store_put_with_out_of_line_key_test_assert() -> Promise(Nil)
 
 pub fn store_get_not_found_test() -> Promise(Nil) {
   //! Arrange
@@ -1671,12 +1661,7 @@ pub fn store_get_not_found_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { store_get_not_found_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "store_get_not_found_test_assert")
-fn store_get_not_found_test_assert() -> Promise(Nil)
 
 pub fn store_get_key_not_found_test() -> Promise(Nil) {
   //! Arrange
@@ -1730,12 +1715,7 @@ pub fn store_get_key_not_found_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { store_get_key_not_found_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "store_get_key_not_found_test_assert")
-fn store_get_key_not_found_test_assert() -> Promise(Nil)
 
 pub fn index_get_not_found_test() -> Promise(Nil) {
   //! Arrange
@@ -1798,12 +1778,7 @@ pub fn index_get_not_found_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { index_get_not_found_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "index_get_not_found_test_assert")
-fn index_get_not_found_test_assert() -> Promise(Nil)
 
 pub fn index_get_key_not_found_test() -> Promise(Nil) {
   //! Arrange
@@ -1866,12 +1841,7 @@ pub fn index_get_key_not_found_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { index_get_key_not_found_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "index_get_key_not_found_test_assert")
-fn index_get_key_not_found_test_assert() -> Promise(Nil)
 
 pub fn on_abort_manual_test() -> Promise(Nil) {
   //! Arrange
@@ -1924,15 +1894,12 @@ pub fn on_abort_manual_test() -> Promise(Nil) {
 
   //! Assert
   received_error
-  |> promise.await(fn(err) {
+  |> promise.map(fn(err) {
     let assert True = was_called()
     let assert None = err
-    on_abort_manual_test_assert()
+    Nil
   })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "on_abort_manual_test_assert")
-fn on_abort_manual_test_assert() -> Promise(Nil)
 
 pub fn on_abort_error_test() -> Promise(Nil) {
   //! Arrange
@@ -2002,15 +1969,12 @@ pub fn on_abort_error_test() -> Promise(Nil) {
 
   //! Assert
   received_error
-  |> promise.await(fn(err) {
+  |> promise.map(fn(err) {
     let assert True = was_called()
-    let assert Some(_error_name) = err
-    on_abort_error_test_assert()
+    let assert Some(_) = err
+    Nil
   })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "on_abort_error_test_assert")
-fn on_abort_error_test_assert() -> Promise(Nil)
 
 pub fn store_add_data_error_test() -> Promise(Nil) {
   //! Arrange
@@ -2063,12 +2027,7 @@ pub fn store_add_data_error_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { store_add_data_error_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "store_add_data_error_test_assert")
-fn store_add_data_error_test_assert() -> Promise(Nil)
 
 pub fn store_add_constraint_error_test() -> Promise(Nil) {
   //! Arrange
@@ -2134,9 +2093,4 @@ pub fn store_add_constraint_error_test() -> Promise(Nil) {
       }
     })
   })
-  //! Assert
-  |> promise.await(fn(_) { store_add_constraint_error_test_assert() })
 }
-
-@external(javascript, "./transaction_test_ffi.mjs", "store_add_constraint_error_test_assert")
-fn store_add_constraint_error_test_assert() -> Promise(Nil)

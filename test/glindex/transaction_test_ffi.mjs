@@ -275,22 +275,6 @@ export async function store_put_with_out_of_line_key_test_assert() {
   return undefined;
 }
 
-export async function store_get_not_found_test_assert() {
-  return undefined;
-}
-
-export async function store_get_key_not_found_test_assert() {
-  return undefined;
-}
-
-export async function index_get_not_found_test_assert() {
-  return undefined;
-}
-
-export async function index_get_key_not_found_test_assert() {
-  return undefined;
-}
-
 export async function store_with_composite_key_path_test_assert() {
   const db = await open_db("Hoi");
   const record = await new Promise((resolve, reject) => {
@@ -310,21 +294,5 @@ export async function store_with_composite_key_path_test_assert() {
       `Expected record {first_name: "Alice", last_name: "Smith"}, got ${JSON.stringify(record)}`,
     );
   }
-  return undefined;
-}
-
-export async function on_abort_manual_test_assert() {
-  return undefined;
-}
-
-export async function on_abort_error_test_assert() {
-  return undefined;
-}
-
-export async function store_add_data_error_test_assert() {
-  return undefined;
-}
-
-export async function store_add_constraint_error_test_assert() {
   return undefined;
 }
