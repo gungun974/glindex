@@ -366,6 +366,66 @@ fn store_put_ffi(
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
 
+pub fn store_add_with_out_of_line_key(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  key: Value,
+  key_decoder: decode.Decoder(t),
+  next: fn(Result(t, TransactionError)) -> a,
+) -> a {
+  store_add_with_out_of_line_key_ffi(tx, store, value, key, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(k) -> next(Ok(k))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error("ConstraintError") -> next(Error(ConstraintError))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
+}
+
+@external(javascript, "./transaction_ffi.mjs", "store_add_with_out_of_line_key")
+fn store_add_with_out_of_line_key_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  key: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
+
+pub fn store_put_with_out_of_line_key(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  key: Value,
+  key_decoder: decode.Decoder(t),
+  next: fn(Result(t, TransactionError)) -> a,
+) -> a {
+  store_put_with_out_of_line_key_ffi(tx, store, value, key, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(k) -> next(Ok(k))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error("ConstraintError") -> next(Error(ConstraintError))
+      Error(name) -> next(Error(UnknownError(name)))
+    }
+  })
+}
+
+@external(javascript, "./transaction_ffi.mjs", "store_put_with_out_of_line_key")
+fn store_put_with_out_of_line_key_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  key: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
+
 pub fn store_delete(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any),

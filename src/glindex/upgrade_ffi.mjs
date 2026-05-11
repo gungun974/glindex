@@ -4,7 +4,7 @@ import {
   List$NonEmpty$rest,
 } from "../gleam.mjs";
 import {
-  KeyPath$isNoKeyPath,
+  KeyPath$isOutOfLineKey,
   KeyPath$isKeyPath,
   KeyPath$KeyPath$0,
   KeyPath$CompositeKeyPath$0,
@@ -31,7 +31,7 @@ export function create_store(tx, name, options) {
   const keyPath = StoreOptions$StoreOptions$key_path(options);
   if (KeyPath$isKeyPath(keyPath)) {
     idbOptions.keyPath = KeyPath$KeyPath$0(keyPath);
-  } else if (!KeyPath$isNoKeyPath(keyPath)) {
+  } else if (!KeyPath$isOutOfLineKey(keyPath)) {
     const arr = [];
     let list = KeyPath$CompositeKeyPath$0(keyPath);
     while (List$isNonEmpty(list)) {
@@ -56,7 +56,7 @@ export function create_index(tx, index, key_path, options) {
   let idbKeyPath;
   if (KeyPath$isKeyPath(key_path)) {
     idbKeyPath = KeyPath$KeyPath$0(key_path);
-  } else if (!KeyPath$isNoKeyPath(key_path)) {
+  } else if (!KeyPath$isOutOfLineKey(key_path)) {
     const arr = [];
     let list = KeyPath$CompositeKeyPath$0(key_path);
     while (List$isNonEmpty(list)) {

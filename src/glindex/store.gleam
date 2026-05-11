@@ -123,6 +123,42 @@ pub fn put(
   }
 }
 
+pub fn add_with_out_of_line_key(
+  db: Database,
+  store_ref: Store(any),
+  value: Value,
+  key: Value,
+  key_decoder: decode.Decoder(t),
+  next: fn(Result(t, TransactionError)) -> a,
+) -> a {
+  let tx = transaction.prepare(db, transaction.read_write)
+  let #(tx, s) = transaction.store(tx, store_ref)
+  use tx <- transaction.begin(tx)
+  case tx {
+    Ok(tx) ->
+      transaction.store_add_with_out_of_line_key(tx, s, value, key, key_decoder, next)
+    Error(e) -> next(Error(e))
+  }
+}
+
+pub fn put_with_out_of_line_key(
+  db: Database,
+  store_ref: Store(any),
+  value: Value,
+  key: Value,
+  key_decoder: decode.Decoder(t),
+  next: fn(Result(t, TransactionError)) -> a,
+) -> a {
+  let tx = transaction.prepare(db, transaction.read_write)
+  let #(tx, s) = transaction.store(tx, store_ref)
+  use tx <- transaction.begin(tx)
+  case tx {
+    Ok(tx) ->
+      transaction.store_put_with_out_of_line_key(tx, s, value, key, key_decoder, next)
+    Error(e) -> next(Error(e))
+  }
+}
+
 pub fn delete(
   db: Database,
   store_ref: Store(any),

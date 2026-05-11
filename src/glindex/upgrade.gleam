@@ -4,7 +4,7 @@ import glindex/transaction.{
 }
 
 pub type KeyPath {
-  NoKeyPath
+  OutOfLineKey
   KeyPath(String)
   CompositeKeyPath(List(String))
 }
@@ -18,7 +18,7 @@ pub type IndexOptions {
 }
 
 pub fn store_options() -> StoreOptions {
-  StoreOptions(key_path: NoKeyPath, auto_increment: False)
+  StoreOptions(key_path: OutOfLineKey, auto_increment: False)
 }
 
 pub fn index_options() -> IndexOptions {

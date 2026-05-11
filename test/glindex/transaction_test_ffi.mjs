@@ -162,7 +162,9 @@ export async function index_get_all_test_assert() {
   const count = await count_by_index(db, "my_store", "name_idx", "Alice");
   db.close();
   if (count !== 2) {
-    throw new Error(`Expected 2 records with name "Alice" via index, got ${count}`);
+    throw new Error(
+      `Expected 2 records with name "Alice" via index, got ${count}`,
+    );
   }
   return undefined;
 }
@@ -172,7 +174,9 @@ export async function index_get_all_keys_test_assert() {
   const count = await count_by_index(db, "my_store", "name_idx", "Alice");
   db.close();
   if (count !== 2) {
-    throw new Error(`Expected 2 keys with name "Alice" via index, got ${count}`);
+    throw new Error(
+      `Expected 2 keys with name "Alice" via index, got ${count}`,
+    );
   }
   return undefined;
 }
@@ -182,7 +186,9 @@ export async function index_count_test_assert() {
   const count = await count_by_index(db, "my_store", "name_idx", "Alice");
   db.close();
   if (count !== 2) {
-    throw new Error(`Expected count 2 for name "Alice" via index, got ${count}`);
+    throw new Error(
+      `Expected count 2 for name "Alice" via index, got ${count}`,
+    );
   }
   return undefined;
 }
@@ -245,6 +251,30 @@ export async function on_error_test_assert() {
   return undefined;
 }
 
+export async function store_add_with_out_of_line_key_test_assert() {
+  const db = await open_db("Hoi");
+  const record = await get_record(db, "my_store", 42);
+  db.close();
+  if (!record || record.name !== "Alice") {
+    throw new Error(
+      `Expected record {name: "Alice"} at explicit key 42, got ${JSON.stringify(record)}`,
+    );
+  }
+  return undefined;
+}
+
+export async function store_put_with_out_of_line_key_test_assert() {
+  const db = await open_db("Hoi");
+  const record = await get_record(db, "my_store", 42);
+  db.close();
+  if (!record || record.name !== "Bob") {
+    throw new Error(
+      `Expected updated record {name: "Bob"} at explicit key 42, got ${JSON.stringify(record)}`,
+    );
+  }
+  return undefined;
+}
+
 export async function store_with_composite_key_path_test_assert() {
   const db = await open_db("Hoi");
   const record = await new Promise((resolve, reject) => {
@@ -255,7 +285,11 @@ export async function store_with_composite_key_path_test_assert() {
     req.onerror = () => reject(req.error);
   });
   db.close();
-  if (!record || record.first_name !== "Alice" || record.last_name !== "Smith") {
+  if (
+    !record ||
+    record.first_name !== "Alice" ||
+    record.last_name !== "Smith"
+  ) {
     throw new Error(
       `Expected record {first_name: "Alice", last_name: "Smith"}, got ${JSON.stringify(record)}`,
     );

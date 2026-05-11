@@ -82,7 +82,7 @@ pub fn create_store_with_auto_increment_test() -> Promise(Nil) {
           tx,
           "my_store",
           upgrade.StoreOptions(
-            key_path: upgrade.NoKeyPath,
+            key_path: upgrade.OutOfLineKey,
             auto_increment: True,
           ),
         )

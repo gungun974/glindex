@@ -190,6 +190,20 @@ export function store_put(tx, store, value, next) {
     next(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
+export function store_add_with_out_of_line_key(tx, store, value, key, next) {
+  const request = tx.tx.objectStore(store).add(value, key);
+  request.onsuccess = () => next(Result$Ok(request.result));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
+}
+
+export function store_put_with_out_of_line_key(tx, store, value, key, next) {
+  const request = tx.tx.objectStore(store).put(value, key);
+  request.onsuccess = () => next(Result$Ok(request.result));
+  request.onerror = () =>
+    next(Result$Error(request.error?.name ?? "UnknownError"));
+}
+
 export function store_delete(tx, store, query, next) {
   const request = tx.tx.objectStore(store).delete(queryToIDBKeyRange(query));
   request.onsuccess = () => next(Result$Ok(undefined));

@@ -1157,7 +1157,7 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
           tx,
           "my_store",
           upgrade.StoreOptions(
-            key_path: upgrade.NoKeyPath,
+            key_path: upgrade.OutOfLineKey,
             auto_increment: True,
           ),
         )
@@ -1490,3 +1490,131 @@ pub fn on_error_test() -> Promise(Nil) {
 
 @external(javascript, "./transaction_test_ffi.mjs", "on_error_test_assert")
 fn on_error_test_assert() -> Promise(Nil)
+
+pub fn store_add_with_out_of_line_key_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.OutOfLineKey,
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use result <- transaction.store_add_with_out_of_line_key(
+                  tx,
+                  my_store,
+                  glindex.object([#("name", glindex.string("Alice"))]),
+                  glindex.int(42),
+                  decode.int,
+                )
+
+                let assert Ok(42) = result
+
+                database.close(db)
+
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_add_with_out_of_line_key_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "store_add_with_out_of_line_key_test_assert")
+fn store_add_with_out_of_line_key_test_assert() -> Promise(Nil)
+
+pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.OutOfLineKey,
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use _ <- transaction.store_add_with_out_of_line_key(
+                  tx,
+                  my_store,
+                  glindex.object([#("name", glindex.string("Alice"))]),
+                  glindex.int(42),
+                  decode.int,
+                )
+
+                use result <- transaction.store_put_with_out_of_line_key(
+                  tx,
+                  my_store,
+                  glindex.object([#("name", glindex.string("Bob"))]),
+                  glindex.int(42),
+                  decode.int,
+                )
+
+                let assert Ok(42) = result
+
+                database.close(db)
+
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_put_with_out_of_line_key_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "store_put_with_out_of_line_key_test_assert")
+fn store_put_with_out_of_line_key_test_assert() -> Promise(Nil)
