@@ -275,6 +275,22 @@ export async function store_put_with_out_of_line_key_test_assert() {
   return undefined;
 }
 
+export async function store_get_not_found_test_assert() {
+  return undefined;
+}
+
+export async function store_get_key_not_found_test_assert() {
+  return undefined;
+}
+
+export async function index_get_not_found_test_assert() {
+  return undefined;
+}
+
+export async function index_get_key_not_found_test_assert() {
+  return undefined;
+}
+
 export async function store_with_composite_key_path_test_assert() {
   const db = await open_db("Hoi");
   const record = await new Promise((resolve, reject) => {

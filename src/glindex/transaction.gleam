@@ -36,6 +36,7 @@ pub type TransactionIndex
 
 pub type TransactionError {
   ConstraintError
+  NotFoundError
   UnableToDecode(List(decode.DecodeError))
   UnknownError(String)
 }
@@ -174,6 +175,7 @@ pub fn store_get(
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
+      Error("NotFound") -> next(Error(NotFoundError))
       Error(name) -> next(Error(UnknownError(name)))
     }
   })
@@ -238,6 +240,7 @@ pub fn store_get_key(
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
+      Error("NotFound") -> next(Error(NotFoundError))
       Error(name) -> next(Error(UnknownError(name)))
     }
   })
@@ -482,6 +485,7 @@ pub fn index_get(
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
+      Error("NotFound") -> next(Error(NotFoundError))
       Error(name) -> next(Error(UnknownError(name)))
     }
   })
@@ -509,6 +513,7 @@ pub fn index_get_key(
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
+      Error("NotFound") -> next(Error(NotFoundError))
       Error(name) -> next(Error(UnknownError(name)))
     }
   })

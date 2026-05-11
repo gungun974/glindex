@@ -139,7 +139,10 @@ export function commit(tx) {
 
 export function store_get(tx, store, query, next) {
   const request = tx.tx.objectStore(store).get(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(request.result));
+  request.onsuccess = () =>
+    request.result === undefined
+      ? next(Result$Error("NotFound"))
+      : next(Result$Ok(request.result));
   request.onerror = () =>
     next(Result$Error(request.error?.name ?? "UnknownError"));
 }
@@ -155,7 +158,10 @@ export function store_get_all(tx, store, query, count, next) {
 
 export function store_get_key(tx, store, query, next) {
   const request = tx.tx.objectStore(store).getKey(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(request.result));
+  request.onsuccess = () =>
+    request.result === undefined
+      ? next(Result$Error("NotFound"))
+      : next(Result$Ok(request.result));
   request.onerror = () =>
     next(Result$Error(request.error?.name ?? "UnknownError"));
 }
@@ -223,7 +229,10 @@ export function index_get(tx, index, query, next) {
     .objectStore(index.store)
     .index(index.name)
     .get(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(request.result));
+  request.onsuccess = () =>
+    request.result === undefined
+      ? next(Result$Error("NotFound"))
+      : next(Result$Ok(request.result));
   request.onerror = () =>
     next(Result$Error(request.error?.name ?? "UnknownError"));
 }
@@ -233,7 +242,10 @@ export function index_get_key(tx, index, query, next) {
     .objectStore(index.store)
     .index(index.name)
     .getKey(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(request.result));
+  request.onsuccess = () =>
+    request.result === undefined
+      ? next(Result$Error("NotFound"))
+      : next(Result$Ok(request.result));
   request.onerror = () =>
     next(Result$Error(request.error?.name ?? "UnknownError"));
 }

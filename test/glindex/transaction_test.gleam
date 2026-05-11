@@ -1618,3 +1618,257 @@ pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
 
 @external(javascript, "./transaction_test_ffi.mjs", "store_put_with_out_of_line_key_test_assert")
 fn store_put_with_out_of_line_key_test_assert() -> Promise(Nil)
+
+pub fn store_get_not_found_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_only)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use result <- transaction.store_get(
+                  tx,
+                  my_store,
+                  glindex.Only(glindex.int(999)),
+                  decode.field("name", decode.string, decode.success),
+                )
+
+                let assert Error(transaction.NotFoundError) = result
+
+                database.close(db)
+
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_get_not_found_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "store_get_not_found_test_assert")
+fn store_get_not_found_test_assert() -> Promise(Nil)
+
+pub fn store_get_key_not_found_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_only)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use result <- transaction.store_get_key(
+                  tx,
+                  my_store,
+                  glindex.Only(glindex.int(999)),
+                  decode.int,
+                )
+
+                let assert Error(transaction.NotFoundError) = result
+
+                database.close(db)
+
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_get_key_not_found_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "store_get_key_not_found_test_assert")
+fn store_get_key_not_found_test_assert() -> Promise(Nil)
+
+pub fn index_get_not_found_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let s =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      let idx = upgrade.index(s, "name_idx")
+      let _ =
+        upgrade.create_index(
+          tx,
+          idx,
+          upgrade.KeyPath("name"),
+          upgrade.index_options(),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_only)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          let name_idx = transaction.index(my_store, Index("name_idx"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use result <- transaction.index_get(
+                  tx,
+                  name_idx,
+                  glindex.Only(glindex.string("Nobody")),
+                  decode.field("name", decode.string, decode.success),
+                )
+
+                let assert Error(transaction.NotFoundError) = result
+
+                database.close(db)
+
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { index_get_not_found_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "index_get_not_found_test_assert")
+fn index_get_not_found_test_assert() -> Promise(Nil)
+
+pub fn index_get_key_not_found_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  promise.new(fn(resolve) {
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let s =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      let idx = upgrade.index(s, "name_idx")
+      let _ =
+        upgrade.create_index(
+          tx,
+          idx,
+          upgrade.KeyPath("name"),
+          upgrade.index_options(),
+        )
+      Nil
+    })
+    |> database.open(fn(maybe_db) {
+      case maybe_db {
+        Error(_) -> resolve(Nil)
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_only)
+          let #(builder, my_store) =
+            transaction.store(builder, Store("my_store"))
+          let name_idx = transaction.index(my_store, Index("name_idx"))
+          transaction.begin(builder, fn(maybe_tx) {
+            case maybe_tx {
+              Error(_) -> {
+                database.close(db)
+                resolve(Nil)
+              }
+              Ok(tx) -> {
+                use result <- transaction.index_get_key(
+                  tx,
+                  name_idx,
+                  glindex.Only(glindex.string("Nobody")),
+                  decode.int,
+                )
+
+                let assert Error(transaction.NotFoundError) = result
+
+                database.close(db)
+
+                resolve(Nil)
+              }
+            }
+          })
+        }
+      }
+    })
+  })
+  //! Assert
+  |> promise.await(fn(_) { index_get_key_not_found_test_assert() })
+}
+
+@external(javascript, "./transaction_test_ffi.mjs", "index_get_key_not_found_test_assert")
+fn index_get_key_not_found_test_assert() -> Promise(Nil)
