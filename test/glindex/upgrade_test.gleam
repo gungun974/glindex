@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
 import gleam/list
 import glindex.{Store}
@@ -824,8 +825,26 @@ pub fn object_store_names_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_only)
-          let #(builder, _) = transaction.store(builder, Store("store_a"))
-          let #(builder, _) = transaction.store(builder, Store("store_b"))
+          let #(builder, _) =
+            transaction.store(
+              builder,
+              Store(
+                name: "store_a",
+                to_value: fn(_, _) { glindex.null() },
+                decoder: decode.dynamic,
+                key_decoder: decode.dynamic,
+              ),
+            )
+          let #(builder, _) =
+            transaction.store(
+              builder,
+              Store(
+                name: "store_b",
+                to_value: fn(_, _) { glindex.null() },
+                decoder: decode.dynamic,
+                key_decoder: decode.dynamic,
+              ),
+            )
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -889,7 +908,15 @@ pub fn index_names_test() -> Promise(Nil) {
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_only)
           let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+            transaction.store(
+              builder,
+              Store(
+                name: "my_store",
+                to_value: fn(_, _) { glindex.null() },
+                decoder: decode.dynamic,
+                key_decoder: decode.dynamic,
+              ),
+            )
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {

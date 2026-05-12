@@ -12,6 +12,36 @@ import glindex/upgrade
 @external(javascript, "../glindex_test_ffi.mjs", "fake_indexeddb")
 pub fn fake_indexeddb() -> Nil
 
+fn test_store() {
+  Store(
+    name: "my_store",
+    to_value: fn(data: #(Int, String), _) {
+      case data.0 {
+        0 -> {
+          glindex.object([
+            #("name", glindex.string(data.1)),
+          ])
+        }
+        _ ->
+          glindex.object([
+            #("id", glindex.int(data.0)),
+            #("name", glindex.string(data.1)),
+          ])
+      }
+    },
+    decoder: {
+      use id <- decode.field("id", decode.int)
+      use name <- decode.field("name", decode.string)
+      decode.success(#(id, name))
+    },
+    key_decoder: decode.int,
+  )
+}
+
+fn test_index() {
+  Index(name: "name_idx")
+}
+
 pub fn store_open_cursor_test() -> Promise(Nil) {
   //! Arrange
   fake_indexeddb()
@@ -36,8 +66,7 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -45,35 +74,9 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(3)),
-                    #("name", glindex.string("Charlie")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
+                use _ <- store.add(tx, my_store, #(3, "Charlie"))
 
                 use result <- store.open_cursor(
                   tx,
@@ -127,8 +130,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -136,35 +138,9 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(3)),
-                    #("name", glindex.string("Charlie")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
+                use _ <- store.add(tx, my_store, #(3, "Charlie"))
 
                 use result <- store.open_cursor(
                   tx,
@@ -228,8 +204,7 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -237,35 +212,9 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(3)),
-                    #("name", glindex.string("Charlie")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
+                use _ <- store.add(tx, my_store, #(3, "Charlie"))
 
                 use result <- store.open_cursor(
                   tx,
@@ -319,8 +268,7 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -328,35 +276,9 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(3)),
-                    #("name", glindex.string("Charlie")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
+                use _ <- store.add(tx, my_store, #(3, "Charlie"))
 
                 use result <- store.open_cursor(
                   tx,
@@ -417,8 +339,7 @@ pub fn store_open_key_cursor_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -426,25 +347,8 @@ pub fn store_open_key_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use result <- store.open_key_cursor(
                   tx,
@@ -506,9 +410,8 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
-          let name_idx = transaction.index(my_store, Index("name_idx"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
+          let name_idx = transaction.index(my_store, test_index())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -516,25 +419,8 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use result <- index.open_cursor(
                   tx,
@@ -596,9 +482,8 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
-          let name_idx = transaction.index(my_store, Index("name_idx"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
+          let name_idx = transaction.index(my_store, test_index())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -606,25 +491,8 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use result <- index.open_key_cursor(
                   tx,
@@ -678,8 +546,7 @@ pub fn cursor_delete_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -687,25 +554,8 @@ pub fn cursor_delete_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use _ <- store.open_cursor(
                   tx,
@@ -760,8 +610,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -769,15 +618,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 use _ <- store.open_cursor(
                   tx,
@@ -838,8 +679,7 @@ pub fn cursor_delete_returns_ok_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -847,15 +687,7 @@ pub fn cursor_delete_returns_ok_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 use _ <- store.open_cursor(
                   tx,
@@ -905,8 +737,7 @@ pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -914,15 +745,7 @@ pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 use _ <- store.open_cursor(
                   tx,

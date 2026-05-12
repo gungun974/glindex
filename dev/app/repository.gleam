@@ -10,13 +10,42 @@ import glindex/transaction.{type TransactionError}
 
 pub type TrackStore
 
-pub const track_store: Store(TrackStore) = Store("tracks")
+pub fn track_store() -> Store(TrackStore, Track, Int) {
+  Store(
+    name: "tracks",
+    to_value: fn(track: Track, action: glindex.Action) {
+      case action {
+        glindex.Put -> {
+          glindex.object([
+            #("id", glindex.int(track.id)),
+            #("title", glindex.string(track.title)),
+            #("album", glindex.string(track.album)),
+            #("artist", glindex.string(track.artist)),
+            #("duration", glindex.int(track.duration)),
+          ])
+        }
+        _ -> {
+          glindex.object([
+            #("title", glindex.string(track.title)),
+            #("album", glindex.string(track.album)),
+            #("artist", glindex.string(track.artist)),
+            #("duration", glindex.int(track.duration)),
+          ])
+        }
+      }
+    },
+    decoder: track_decoder(),
+    key_decoder: decode.int,
+  )
+}
 
-pub const track_artist_index: Index(TrackStore) = Index("tracks_artist")
+pub fn track_artist_index() -> Index(TrackStore, Track, String) {
+  Index(name: "tracks_artist")
+}
 
-pub const track_artist_album_index: Index(TrackStore) = Index(
-  "tracks_artist_and_album",
-)
+pub fn track_artist_album_index() -> Index(TrackStore, Track, decode.Dynamic) {
+  Index(name: "tracks_artist_and_album")
+}
 
 fn track_decoder() -> decode.Decoder(Track) {
   use id <- decode.field("id", decode.int)
@@ -34,18 +63,13 @@ pub fn get_track(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
   use tx <- transaction.begin(tx)
 
   case tx {
     Ok(tx) -> {
-      use data_result <- store.get(
-        tx,
-        store,
-        glindex.Only(glindex.int(id)),
-        track_decoder(),
-      )
+      use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
       next({
         use data <- result.try(data_result)
         Ok(data)
@@ -62,9 +86,9 @@ pub fn get_all_tracks_by_artist(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
-  let index = transaction.index(store, track_artist_index)
+  let index = transaction.index(store, track_artist_index())
 
   use tx <- transaction.begin(tx)
 
@@ -75,7 +99,6 @@ pub fn get_all_tracks_by_artist(
         index,
         glindex.Only(glindex.string(artist)),
         option.None,
-        track_decoder(),
       )
       next({
         use data <- result.try(data_result)
@@ -93,32 +116,17 @@ pub fn add_track(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
   use tx <- transaction.begin(tx)
 
   case tx {
     Ok(tx) -> {
-      use maybe_id <- store.add(
-        tx,
-        store,
-        glindex.object([
-          #("title", glindex.string(track.title)),
-          #("album", glindex.string(track.album)),
-          #("artist", glindex.string(track.artist)),
-          #("duration", glindex.int(track.duration)),
-        ]),
-        decode.int,
-      )
+      use maybe_id <- store.add(tx, store, track)
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- store.get(
-            tx,
-            store,
-            glindex.Only(glindex.int(id)),
-            track_decoder(),
-          )
+          use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
           next({
             use data <- result.try(data_result)
             Ok(data)
@@ -138,33 +146,17 @@ pub fn put_track(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
   use tx <- transaction.begin(tx)
 
   case tx {
     Ok(tx) -> {
-      use maybe_id <- store.put(
-        tx,
-        store,
-        glindex.object([
-          #("id", glindex.int(track.id)),
-          #("title", glindex.string(track.title)),
-          #("album", glindex.string(track.album)),
-          #("artist", glindex.string(track.artist)),
-          #("duration", glindex.int(track.duration)),
-        ]),
-        decode.int,
-      )
+      use maybe_id <- store.put(tx, store, track)
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- store.get(
-            tx,
-            store,
-            glindex.Only(glindex.int(id)),
-            track_decoder(),
-          )
+          use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
           next({
             use data <- result.try(data_result)
             Ok(data)
@@ -184,7 +176,7 @@ pub fn get_tracks_shorter_than(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
   use tx <- transaction.begin(tx)
 
@@ -220,9 +212,9 @@ pub fn delete_tracks_by_artist(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
-  let index = transaction.index(store, track_artist_index)
+  let index = transaction.index(store, track_artist_index())
 
   use tx <- transaction.begin(tx)
 
@@ -253,9 +245,9 @@ pub fn rename_artist(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
-  let index = transaction.index(store, track_artist_index)
+  let index = transaction.index(store, track_artist_index())
 
   use tx <- transaction.begin(tx)
 
@@ -299,9 +291,9 @@ pub fn get_tracks_from_prolific_artists(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_only)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
-  let index = transaction.index(store, track_artist_index)
+  let index = transaction.index(store, track_artist_index())
 
   use tx <- transaction.begin(tx)
 
@@ -344,18 +336,13 @@ pub fn delete_track(
 ) -> a {
   let tx = transaction.prepare(db, transaction.read_write)
 
-  let #(tx, store) = transaction.store(tx, track_store)
+  let #(tx, store) = transaction.store(tx, track_store())
 
   use tx <- transaction.begin(tx)
 
   case tx {
     Ok(tx) -> {
-      use data_result <- store.get(
-        tx,
-        store,
-        glindex.Only(glindex.int(id)),
-        track_decoder(),
-      )
+      use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
       case data_result {
         Ok(track) -> {
           use _ <- store.delete(tx, store, glindex.Only(glindex.int(id)))

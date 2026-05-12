@@ -22,7 +22,7 @@ import {
 } from "./upgrade.mjs";
 
 export function store(name) {
-  return name;
+  return { name };
 }
 
 export function index(store, name) {
@@ -52,7 +52,7 @@ export function create_store(tx, name, options) {
     }
 
     tx.db.createObjectStore(name, idbOptions);
-    return Result$Ok(name);
+    return Result$Ok(store(name));
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
   }
@@ -69,7 +69,7 @@ export function delete_store(tx, name) {
 
 export function create_index(tx, index, key_path, options) {
   try {
-    const store = tx.tx.objectStore(index.store);
+    const store = tx.tx.objectStore(index.store.name);
 
     let idbKeyPath;
     if (KeyPath$isKeyPath(key_path)) {
@@ -96,7 +96,7 @@ export function create_index(tx, index, key_path, options) {
 
 export function delete_index(tx, index) {
   try {
-    const store = tx.tx.objectStore(index.store);
+    const store = tx.tx.objectStore(index.store.name);
     store.deleteIndex(index.name);
     return Result$Ok(undefined);
   } catch (e) {
@@ -119,17 +119,17 @@ function idbKeyPathToGleam(kp) {
   return KeyPath$KeyPath(kp);
 }
 
-export function store_key_path(tx, store_name) {
+export function store_key_path(tx, store) {
   try {
-    return Result$Ok(idbKeyPathToGleam(tx.tx.objectStore(store_name).keyPath));
+    return Result$Ok(idbKeyPathToGleam(tx.tx.objectStore(store.name).keyPath));
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
   }
 }
 
-export function store_auto_increment(tx, store_name) {
+export function store_auto_increment(tx, store) {
   try {
-    return Result$Ok(tx.tx.objectStore(store_name).autoIncrement);
+    return Result$Ok(tx.tx.objectStore(store.name).autoIncrement);
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
   }
@@ -139,7 +139,7 @@ export function index_key_path(tx, index) {
   try {
     return Result$Ok(
       idbKeyPathToGleam(
-        tx.tx.objectStore(index.store).index(index.name).keyPath,
+        tx.tx.objectStore(index.store.name).index(index.name).keyPath,
       ),
     );
   } catch (e) {
@@ -149,7 +149,9 @@ export function index_key_path(tx, index) {
 
 export function index_unique(tx, index) {
   try {
-    return Result$Ok(tx.tx.objectStore(index.store).index(index.name).unique);
+    return Result$Ok(
+      tx.tx.objectStore(index.store.name).index(index.name).unique,
+    );
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
   }
@@ -158,17 +160,17 @@ export function index_unique(tx, index) {
 export function index_multi_entry(tx, index) {
   try {
     return Result$Ok(
-      tx.tx.objectStore(index.store).index(index.name).multiEntry,
+      tx.tx.objectStore(index.store.name).index(index.name).multiEntry,
     );
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
   }
 }
 
-export function rename_store(tx, store_name, new_name) {
+export function rename_store(tx, old_store, new_name) {
   try {
-    tx.tx.objectStore(store_name).name = new_name;
-    return Result$Ok(new_name);
+    tx.tx.objectStore(old_store.name).name = new_name;
+    return Result$Ok(store(new_name));
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
   }
@@ -176,7 +178,7 @@ export function rename_store(tx, store_name, new_name) {
 
 export function rename_index(tx, index, new_name) {
   try {
-    tx.tx.objectStore(index.store).index(index.name).name = new_name;
+    tx.tx.objectStore(index.store.name).index(index.name).name = new_name;
     return Result$Ok({ store: index.store, name: new_name });
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");
@@ -187,10 +189,10 @@ export function object_store_names(tx) {
   return gleamListFromArray(Array.from(tx.tx.objectStoreNames));
 }
 
-export function index_names(tx, store_name) {
+export function index_names(tx, store) {
   try {
     return Result$Ok(
-      gleamListFromArray(Array.from(tx.tx.objectStore(store_name).indexNames)),
+      gleamListFromArray(Array.from(tx.tx.objectStore(store.name).indexNames)),
     );
   } catch (e) {
     return Result$Error(e.name ?? "UnknownError");

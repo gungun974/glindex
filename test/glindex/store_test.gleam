@@ -11,6 +11,32 @@ import glindex/upgrade
 @external(javascript, "../glindex_test_ffi.mjs", "fake_indexeddb")
 pub fn fake_indexeddb() -> Nil
 
+fn test_store() {
+  Store(
+    name: "my_store",
+    to_value: fn(data: #(Int, String), _) {
+      case data.0 {
+        0 -> {
+          glindex.object([
+            #("name", glindex.string(data.1)),
+          ])
+        }
+        _ ->
+          glindex.object([
+            #("id", glindex.int(data.0)),
+            #("name", glindex.string(data.1)),
+          ])
+      }
+    },
+    decoder: {
+      use id <- decode.field("id", decode.int)
+      use name <- decode.field("name", decode.string)
+      decode.success(#(id, name))
+    },
+    key_decoder: decode.int,
+  )
+}
+
 pub fn store_add_test() -> Promise(Nil) {
   //! Arrange
   fake_indexeddb()
@@ -35,8 +61,7 @@ pub fn store_add_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -44,15 +69,7 @@ pub fn store_add_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 database.close(db)
 
@@ -95,8 +112,7 @@ pub fn store_put_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -104,25 +120,8 @@ pub fn store_put_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.put(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.put(tx, my_store, #(1, "Bob"))
 
                 database.close(db)
 
@@ -165,8 +164,7 @@ pub fn store_get_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -174,24 +172,15 @@ pub fn store_get_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 use result <- store.get(
                   tx,
                   my_store,
                   glindex.Only(glindex.int(1)),
-                  decode.field("name", decode.string, decode.success),
                 )
 
-                let assert Ok("Alice") = result
+                let assert Ok(#(1, "Alice")) = result
 
                 database.close(db)
 
@@ -234,8 +223,7 @@ pub fn store_get_all_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -243,32 +231,14 @@ pub fn store_get_all_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use result <- store.get_all(
                   tx,
                   my_store,
                   glindex.All,
                   option.None,
-                  decode.field("id", decode.int, decode.success),
                 )
 
                 let assert Ok(ids) = result
@@ -316,8 +286,7 @@ pub fn store_get_key_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -325,21 +294,12 @@ pub fn store_get_key_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(42)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(42, "Alice"))
 
                 use result <- store.get_key(
                   tx,
                   my_store,
                   glindex.Only(glindex.int(42)),
-                  decode.int,
                 )
 
                 let assert Ok(42) = result
@@ -385,8 +345,7 @@ pub fn store_get_all_keys_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -394,37 +353,17 @@ pub fn store_get_all_keys_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use result <- store.get_all_keys(
                   tx,
                   my_store,
                   glindex.All,
                   option.None,
-                  decode.int,
                 )
 
-                let assert Ok(keys) = result
-
-                let assert 2 = list.length(keys)
+                let assert Ok([1, 2]) = result
 
                 database.close(db)
 
@@ -467,8 +406,7 @@ pub fn store_count_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -476,25 +414,8 @@ pub fn store_count_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use result <- store.count(tx, my_store, glindex.All)
 
@@ -541,8 +462,7 @@ pub fn store_delete_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -550,15 +470,7 @@ pub fn store_delete_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 use _ <- store.delete(
                   tx,
@@ -607,8 +519,7 @@ pub fn store_clear_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -616,25 +527,8 @@ pub fn store_clear_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(2)),
-                    #("name", glindex.string("Bob")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(2, "Bob"))
 
                 use _ <- store.clear(tx, my_store)
 
@@ -680,7 +574,22 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
           let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+            transaction.store(
+              builder,
+              Store(
+                name: "my_store",
+                to_value: fn(data: String, _) {
+                  glindex.object([
+                    #("name", glindex.string(data)),
+                  ])
+                },
+                decoder: {
+                  use name <- decode.field("name", decode.string)
+                  decode.success(name)
+                },
+                key_decoder: decode.int,
+              ),
+            )
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -688,12 +597,7 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use key <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([#("name", glindex.string("Alice"))]),
-                  decode.int,
-                )
+                use key <- store.add(tx, my_store, "Alice")
 
                 let assert Ok(1) = key
 
@@ -701,7 +605,6 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
                   tx,
                   my_store,
                   glindex.Only(glindex.int(1)),
-                  decode.field("name", decode.string, decode.success),
                 )
 
                 let assert Ok("Alice") = result
@@ -748,7 +651,27 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
           let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+            transaction.store(builder, {
+              Store(
+                name: "my_store",
+                to_value: fn(data: #(String, String), _) {
+                  glindex.object([
+                    #("first_name", glindex.string(data.0)),
+                    #("last_name", glindex.string(data.1)),
+                  ])
+                },
+                decoder: {
+                  use first_name <- decode.field("first_name", decode.string)
+                  use last_name <- decode.field("last_name", decode.string)
+                  decode.success(#(first_name, last_name))
+                },
+                key_decoder: {
+                  use first_name <- decode.field("first_name", decode.string)
+                  use last_name <- decode.field("last_name", decode.string)
+                  decode.success(#(first_name, last_name))
+                },
+              )
+            })
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -756,15 +679,7 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("first_name", glindex.string("Alice")),
-                    #("last_name", glindex.string("Smith")),
-                  ]),
-                  decode.list(decode.string),
-                )
+                use _ <- store.add(tx, my_store, #("Alice", "Smith"))
 
                 use result <- store.get(
                   tx,
@@ -775,10 +690,9 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
                       glindex.string("Smith"),
                     ]),
                   ),
-                  decode.field("first_name", decode.string, decode.success),
                 )
 
-                let assert Ok("Alice") = result
+                let assert Ok(#("Alice", "Smith")) = result
 
                 database.close(db)
 
@@ -816,8 +730,7 @@ pub fn store_add_with_out_of_line_key_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -828,9 +741,8 @@ pub fn store_add_with_out_of_line_key_test() -> Promise(Nil) {
                 use result <- store.add_with_out_of_line_key(
                   tx,
                   my_store,
-                  glindex.object([#("name", glindex.string("Alice"))]),
+                  #(0, "Alice"),
                   glindex.int(42),
-                  decode.int,
                 )
 
                 let assert Ok(42) = result
@@ -876,8 +788,7 @@ pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -888,17 +799,15 @@ pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
                 use _ <- store.add_with_out_of_line_key(
                   tx,
                   my_store,
-                  glindex.object([#("name", glindex.string("Alice"))]),
+                  #(0, "Alice"),
                   glindex.int(42),
-                  decode.int,
                 )
 
                 use result <- store.put_with_out_of_line_key(
                   tx,
                   my_store,
-                  glindex.object([#("name", glindex.string("Bob"))]),
+                  #(0, "Bob"),
                   glindex.int(42),
-                  decode.int,
                 )
 
                 let assert Ok(42) = result
@@ -939,8 +848,7 @@ pub fn store_get_not_found_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_only)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -952,7 +860,6 @@ pub fn store_get_not_found_test() -> Promise(Nil) {
                   tx,
                   my_store,
                   glindex.Only(glindex.int(999)),
-                  decode.field("name", decode.string, decode.success),
                 )
 
                 let assert Error(transaction.NotFoundError) = result
@@ -993,8 +900,7 @@ pub fn store_get_key_not_found_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_only)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -1006,7 +912,6 @@ pub fn store_get_key_not_found_test() -> Promise(Nil) {
                   tx,
                   my_store,
                   glindex.Only(glindex.int(999)),
-                  decode.int,
                 )
 
                 let assert Error(transaction.NotFoundError) = result
@@ -1048,7 +953,15 @@ pub fn store_add_data_error_test() -> Promise(Nil) {
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
           let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+            transaction.store(
+              builder,
+              Store(
+                name: "my_store",
+                to_value: fn(_: #(Int, String), _) { glindex.null() },
+                decoder: decode.success(#(0, "")),
+                key_decoder: decode.dynamic,
+              ),
+            )
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -1056,13 +969,7 @@ pub fn store_add_data_error_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use result <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([#("name", glindex.string("Alice"))]),
-                  decode.int,
-                )
-
+                use result <- store.add(tx, my_store, #(1, "Alice"))
                 let assert Error(transaction.DataError) = result
 
                 database.close(db)
@@ -1101,7 +1008,24 @@ pub fn store_add_constraint_error_test() -> Promise(Nil) {
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
           let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+            transaction.store(
+              builder,
+              Store(
+                name: "my_store",
+                to_value: fn(data: #(Int, String), _) {
+                  glindex.object([
+                    #("id", glindex.int(data.0)),
+                    #("name", glindex.string(data.1)),
+                  ])
+                },
+                decoder: {
+                  use id <- decode.field("id", decode.int)
+                  use name <- decode.field("name", decode.string)
+                  decode.success(#(id, name))
+                },
+                key_decoder: decode.int,
+              ),
+            )
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -1109,25 +1033,8 @@ pub fn store_add_constraint_error_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-
-                use result <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Duplicate")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use result <- store.add(tx, my_store, #(1, "Duplicate"))
 
                 let assert Error(transaction.ConstraintError) = result
 

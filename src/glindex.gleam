@@ -34,8 +34,20 @@ import gleam/time/timestamp.{type Timestamp}
 /// pub const track_store: Store(TrackStore) = Store("tracks")
 /// ```
 ///
-pub type Store(store_type) {
-  Store(name: String)
+pub type Store(store_type, t, k) {
+  Store(
+    name: String,
+    to_value: fn(t, Action) -> Value,
+    decoder: decode.Decoder(t),
+    key_decoder: decode.Decoder(k),
+  )
+}
+
+pub type Action {
+  Add
+  Put
+  AddOutOfLineKey
+  PutOutOfLineKey
 }
 
 /// A reference to an index on a specific object store.
@@ -52,7 +64,7 @@ pub type Store(store_type) {
 /// )
 /// ```
 ///
-pub type Index(store_type) {
+pub type Index(store_type, t, k) {
   Index(name: String)
 }
 

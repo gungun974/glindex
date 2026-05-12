@@ -13,6 +13,32 @@ pub fn fake_indexeddb() -> Nil
 @external(javascript, "../glindex_test_ffi.mjs", "make_tracker")
 fn make_tracker() -> #(fn() -> Nil, fn() -> Bool)
 
+fn test_store() {
+  Store(
+    name: "my_store",
+    to_value: fn(data: #(Int, String), _) {
+      case data.0 {
+        0 -> {
+          glindex.object([
+            #("name", glindex.string(data.1)),
+          ])
+        }
+        _ ->
+          glindex.object([
+            #("id", glindex.int(data.0)),
+            #("name", glindex.string(data.1)),
+          ])
+      }
+    },
+    decoder: {
+      use id <- decode.field("id", decode.int)
+      use name <- decode.field("name", decode.string)
+      decode.success(#(id, name))
+    },
+    key_decoder: decode.int,
+  )
+}
+
 pub fn abort_transaction_test() -> Promise(Nil) {
   //! Arrange
   fake_indexeddb()
@@ -37,8 +63,7 @@ pub fn abort_transaction_test() -> Promise(Nil) {
         Error(_) -> resolve(Nil)
         Ok(db) -> {
           let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -46,15 +71,7 @@ pub fn abort_transaction_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 transaction.abort(tx)
 
@@ -101,8 +118,7 @@ pub fn with_durability_relaxed_test() -> Promise(Nil) {
           let builder = transaction.prepare(db, transaction.read_write)
           let builder =
             transaction.with_durability(builder, transaction.DurabilityRelaxed)
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -110,15 +126,7 @@ pub fn with_durability_relaxed_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
 
                 database.close(db)
 
@@ -168,8 +176,7 @@ pub fn on_complete_test() -> Promise(Nil) {
               database.close(db)
               resolve(Nil)
             })
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -177,15 +184,7 @@ pub fn on_complete_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
                 Nil
               }
             }
@@ -235,8 +234,7 @@ pub fn on_error_test() -> Promise(Nil) {
               database.close(db)
               resolve(Nil)
             })
-          let #(builder, my_store) =
-            transaction.store(builder, Store("my_store"))
+          let #(builder, my_store) = transaction.store(builder, test_store())
           transaction.begin(builder, fn(maybe_tx) {
             case maybe_tx {
               Error(_) -> {
@@ -244,24 +242,8 @@ pub fn on_error_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Alice")),
-                  ]),
-                  decode.int,
-                )
-                use _ <- store.add(
-                  tx,
-                  my_store,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Duplicate")),
-                  ]),
-                  decode.int,
-                )
+                use _ <- store.add(tx, my_store, #(1, "Alice"))
+                use _ <- store.add(tx, my_store, #(1, "Duplicate"))
                 Nil
               }
             }
@@ -310,8 +292,7 @@ pub fn on_abort_manual_test() -> Promise(Nil) {
                 database.close(db)
                 resolve(err)
               })
-            let #(builder, _my_store) =
-              transaction.store(builder, Store("my_store"))
+            let #(builder, _my_store) = transaction.store(builder, test_store())
             transaction.begin(builder, fn(maybe_tx) {
               case maybe_tx {
                 Error(_) -> {
@@ -368,8 +349,7 @@ pub fn on_abort_error_test() -> Promise(Nil) {
                 database.close(db)
                 resolve(err)
               })
-            let #(builder, my_store) =
-              transaction.store(builder, Store("my_store"))
+            let #(builder, my_store) = transaction.store(builder, test_store())
             transaction.begin(builder, fn(maybe_tx) {
               case maybe_tx {
                 Error(_) -> {
@@ -377,24 +357,8 @@ pub fn on_abort_error_test() -> Promise(Nil) {
                   resolve(None)
                 }
                 Ok(tx) -> {
-                  use _ <- store.add(
-                    tx,
-                    my_store,
-                    glindex.object([
-                      #("id", glindex.int(1)),
-                      #("name", glindex.string("Alice")),
-                    ]),
-                    decode.int,
-                  )
-                  use _ <- store.add(
-                    tx,
-                    my_store,
-                    glindex.object([
-                      #("id", glindex.int(1)),
-                      #("name", glindex.string("Duplicate")),
-                    ]),
-                    decode.int,
-                  )
+                  use _ <- store.add(tx, my_store, #(1, "Alice"))
+                  use _ <- store.add(tx, my_store, #(1, "Duplicate"))
                   Nil
                 }
               }

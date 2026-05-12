@@ -24,21 +24,25 @@ fn map_error(name: String) -> TransactionError {
   }
 }
 
+@external(javascript, "./transaction_ffi.mjs", "extract_index")
+fn extract_index(
+  index: TransactionIndex(t, k),
+) -> #(decode.Decoder(t), decode.Decoder(k))
+
 /// Read the first record matching `query` via `index` and decode it.
 ///
 /// Returns `Error(NotFoundError)` when no record matches.
 ///
 pub fn get(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
-  decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
   get_ffi(tx, index, query, fn(result) {
     case result {
       Ok(raw) ->
-        case decode.run(raw, decoder) {
+        case decode.run(raw, extract_index(index).0) {
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
@@ -51,7 +55,7 @@ pub fn get(
 @external(javascript, "./transaction_ffi.mjs", "index_get")
 fn get_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
@@ -62,15 +66,14 @@ fn get_ffi(
 ///
 pub fn get_key(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
-  decoder: decode.Decoder(t),
-  next: fn(Result(t, TransactionError)) -> a,
+  next: fn(Result(k, TransactionError)) -> a,
 ) -> a {
   get_key_ffi(tx, index, query, fn(result) {
     case result {
       Ok(raw) ->
-        case decode.run(raw, decoder) {
+        case decode.run(raw, extract_index(index).1) {
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
@@ -83,7 +86,7 @@ pub fn get_key(
 @external(javascript, "./transaction_ffi.mjs", "index_get_key")
 fn get_key_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
@@ -94,18 +97,17 @@ fn get_key_ffi(
 ///
 pub fn get_all_keys(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
-  decoder: decode.Decoder(t),
-  next: fn(Result(List(t), TransactionError)) -> a,
+  next: fn(Result(List(k), TransactionError)) -> a,
 ) -> a {
   get_all_keys_ffi(tx, index, query, count, fn(result) {
     case result {
       Ok(raws) -> {
         let decoded =
           list.try_map(raws, fn(raw) {
-            case decode.run(raw, decoder) {
+            case decode.run(raw, extract_index(index).1) {
               Ok(v) -> Ok(v)
               Error(e) -> Error(UnableToDecode(e))
             }
@@ -123,7 +125,7 @@ pub fn get_all_keys(
 @external(javascript, "./transaction_ffi.mjs", "index_get_all_keys")
 fn get_all_keys_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
@@ -133,7 +135,7 @@ fn get_all_keys_ffi(
 ///
 pub fn count(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   next: fn(Result(Int, TransactionError)) -> a,
 ) -> a {
@@ -148,7 +150,7 @@ pub fn count(
 @external(javascript, "./transaction_ffi.mjs", "index_count")
 fn count_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   next: fn(Result(Int, String)) -> a,
 ) -> a
@@ -159,10 +161,9 @@ fn count_ffi(
 ///
 pub fn get_all(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
-  decoder: decode.Decoder(t),
   next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
   get_all_ffi(tx, index, query, count, fn(result) {
@@ -170,7 +171,7 @@ pub fn get_all(
       Ok(raws) -> {
         let decoded =
           list.try_map(raws, fn(raw) {
-            case decode.run(raw, decoder) {
+            case decode.run(raw, extract_index(index).0) {
               Ok(v) -> Ok(v)
               Error(e) -> Error(UnableToDecode(e))
             }
@@ -188,7 +189,7 @@ pub fn get_all(
 @external(javascript, "./transaction_ffi.mjs", "index_get_all")
 fn get_all_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
@@ -201,7 +202,7 @@ fn get_all_ffi(
 ///
 pub fn open_cursor(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
@@ -223,7 +224,7 @@ pub fn open_cursor(
 @external(javascript, "./transaction_ffi.mjs", "index_open_cursor")
 fn open_cursor_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
@@ -242,7 +243,7 @@ fn open_cursor_ffi(
 ///
 pub fn open_key_cursor(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
@@ -264,7 +265,7 @@ pub fn open_key_cursor(
 @external(javascript, "./transaction_ffi.mjs", "index_open_key_cursor")
 fn open_key_cursor_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,

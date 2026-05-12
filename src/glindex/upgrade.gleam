@@ -135,27 +135,27 @@ pub fn index_options() -> IndexOptions {
 pub fn store(
   _: Transaction(ReadWrite, VersionChange),
   name: String,
-) -> TransactionStore(Nil) {
+) -> TransactionStore(Nil, Nil, Nil) {
   store_ffi(name)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "store")
-fn store_ffi(name: String) -> TransactionStore(Nil)
+fn store_ffi(name: String) -> TransactionStore(Nil, Nil, Nil)
 
 /// Get a handle to an existing index by name on the given store.
 ///
 pub fn index(
-  store: TransactionStore(store_type),
+  store: TransactionStore(store_type, t, k),
   name: String,
-) -> TransactionIndex {
+) -> TransactionIndex(t, k2) {
   index_ffi(store, name)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "index")
 fn index_ffi(
-  store: TransactionStore(store_type),
+  store: TransactionStore(store_type, t, k),
   name: String,
-) -> TransactionIndex
+) -> TransactionIndex(t, k2)
 
 /// Create a new object store and return a handle to it.
 ///
@@ -166,7 +166,7 @@ pub fn create_store(
   tx: Transaction(ReadWrite, VersionChange),
   name: String,
   options: StoreOptions,
-) -> Result(TransactionStore(Nil), UpgradeError) {
+) -> Result(TransactionStore(Nil, t, k), UpgradeError) {
   create_store_ffi(tx, name, options) |> result.map_error(map_error)
 }
 
@@ -175,7 +175,7 @@ fn create_store_ffi(
   tx: Transaction(ReadWrite, VersionChange),
   name: String,
   options: StoreOptions,
-) -> Result(TransactionStore(Nil), String)
+) -> Result(TransactionStore(Nil, t, k), String)
 
 /// Delete an existing object store and all records it contains.
 ///
@@ -199,26 +199,26 @@ fn delete_store_ffi(
 ///
 pub fn create_index(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   key_path: KeyPath,
   options: IndexOptions,
-) -> Result(TransactionIndex, UpgradeError) {
+) -> Result(TransactionIndex(t, k), UpgradeError) {
   create_index_ffi(tx, index, key_path, options) |> result.map_error(map_error)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "create_index")
 fn create_index_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   key_path: KeyPath,
   options: IndexOptions,
-) -> Result(TransactionIndex, String)
+) -> Result(TransactionIndex(t, k), String)
 
 /// Delete an existing index from its object store.
 ///
 pub fn delete_index(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(Nil, UpgradeError) {
   delete_index_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -226,14 +226,14 @@ pub fn delete_index(
 @external(javascript, "./upgrade_ffi.mjs", "delete_index")
 fn delete_index_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(Nil, String)
 
 /// Return the key path configuration of a store.
 ///
 pub fn store_key_path(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
 ) -> Result(KeyPath, UpgradeError) {
   store_key_path_ffi(tx, store) |> result.map_error(map_error)
 }
@@ -241,14 +241,14 @@ pub fn store_key_path(
 @external(javascript, "./upgrade_ffi.mjs", "store_key_path")
 fn store_key_path_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
 ) -> Result(KeyPath, String)
 
 /// Return whether the store uses auto-incrementing keys.
 ///
 pub fn store_auto_increment(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
 ) -> Result(Bool, UpgradeError) {
   store_auto_increment_ffi(tx, store) |> result.map_error(map_error)
 }
@@ -256,14 +256,14 @@ pub fn store_auto_increment(
 @external(javascript, "./upgrade_ffi.mjs", "store_auto_increment")
 fn store_auto_increment_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
 ) -> Result(Bool, String)
 
 /// Return the key path configuration of an index.
 ///
 pub fn index_key_path(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(KeyPath, UpgradeError) {
   index_key_path_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -271,14 +271,14 @@ pub fn index_key_path(
 @external(javascript, "./upgrade_ffi.mjs", "index_key_path")
 fn index_key_path_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(KeyPath, String)
 
 /// Return whether the index enforces uniqueness.
 ///
 pub fn index_unique(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(Bool, UpgradeError) {
   index_unique_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -286,14 +286,14 @@ pub fn index_unique(
 @external(javascript, "./upgrade_ffi.mjs", "index_unique")
 fn index_unique_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(Bool, String)
 
 /// Return whether the index uses multi-entry mode.
 ///
 pub fn index_multi_entry(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(Bool, UpgradeError) {
   index_multi_entry_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -301,42 +301,42 @@ pub fn index_multi_entry(
 @external(javascript, "./upgrade_ffi.mjs", "index_multi_entry")
 fn index_multi_entry_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
 ) -> Result(Bool, String)
 
 /// Rename an object store. Returns a handle with the new name.
 ///
 pub fn rename_store(
   tx: Transaction(ReadWrite, VersionChange),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   new_name: String,
-) -> Result(TransactionStore(Nil), UpgradeError) {
+) -> Result(TransactionStore(Nil, t, k), UpgradeError) {
   rename_store_ffi(tx, store, new_name) |> result.map_error(map_error)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "rename_store")
 fn rename_store_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   new_name: String,
-) -> Result(TransactionStore(Nil), String)
+) -> Result(TransactionStore(Nil, t, k), String)
 
 /// Rename an index. Returns a handle with the new name.
 ///
 pub fn rename_index(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   new_name: String,
-) -> Result(TransactionIndex, UpgradeError) {
+) -> Result(TransactionIndex(t, k), UpgradeError) {
   rename_index_ffi(tx, index, new_name) |> result.map_error(map_error)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "rename_index")
 fn rename_index_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex,
+  index: TransactionIndex(t, k),
   new_name: String,
-) -> Result(TransactionIndex, String)
+) -> Result(TransactionIndex(t, k), String)
 
 /// Return the names of all object stores in the database.
 ///
@@ -351,7 +351,7 @@ fn object_store_names_ffi(tx: Transaction(rw, upgrade)) -> List(String)
 ///
 pub fn index_names(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
 ) -> Result(List(String), UpgradeError) {
   index_names_ffi(tx, store) |> result.map_error(map_error)
 }
@@ -359,5 +359,5 @@ pub fn index_names(
 @external(javascript, "./upgrade_ffi.mjs", "index_names")
 fn index_names_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
 ) -> Result(List(String), String)

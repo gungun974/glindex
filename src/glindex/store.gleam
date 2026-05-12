@@ -24,24 +24,27 @@ fn map_error(name: String) -> TransactionError {
   }
 }
 
+@external(javascript, "./transaction_ffi.mjs", "extract_store")
+fn extract_store(store: TransactionStore(any, t, k)) -> glindex.Store(any, t, k)
+
 /// Read the first record matching `query` from `store` and decode it.
 ///
 /// Returns `Error(NotFoundError)` when no record matches.
 ///
 pub fn get(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
-  decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
   get_ffi(tx, store, query, fn(result) {
     case result {
-      Ok(raw) ->
-        case decode.run(raw, decoder) {
+      Ok(raw) -> {
+        case decode.run(raw, extract_store(store).decoder) {
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
+      }
       Error("NotFound") -> next(Error(NotFoundError))
       Error(name) -> next(Error(map_error(name)))
     }
@@ -51,7 +54,7 @@ pub fn get(
 @external(javascript, "./transaction_ffi.mjs", "store_get")
 fn get_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
@@ -62,10 +65,9 @@ fn get_ffi(
 ///
 pub fn get_all(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
-  decoder: decode.Decoder(t),
   next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
   get_all_ffi(tx, store, query, count, fn(result) {
@@ -73,7 +75,7 @@ pub fn get_all(
       Ok(raws) -> {
         let decoded =
           list.try_map(raws, fn(raw) {
-            case decode.run(raw, decoder) {
+            case decode.run(raw, extract_store(store).decoder) {
               Ok(v) -> Ok(v)
               Error(e) -> Error(UnableToDecode(e))
             }
@@ -91,7 +93,7 @@ pub fn get_all(
 @external(javascript, "./transaction_ffi.mjs", "store_get_all")
 fn get_all_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
@@ -103,15 +105,14 @@ fn get_all_ffi(
 ///
 pub fn get_key(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
-  decoder: decode.Decoder(t),
-  next: fn(Result(t, TransactionError)) -> a,
+  next: fn(Result(k, TransactionError)) -> a,
 ) -> a {
   get_key_ffi(tx, store, query, fn(result) {
     case result {
       Ok(raw) ->
-        case decode.run(raw, decoder) {
+        case decode.run(raw, extract_store(store).key_decoder) {
           Ok(value) -> next(Ok(value))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
@@ -124,7 +125,7 @@ pub fn get_key(
 @external(javascript, "./transaction_ffi.mjs", "store_get_key")
 fn get_key_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
@@ -135,18 +136,17 @@ fn get_key_ffi(
 ///
 pub fn get_all_keys(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
-  decoder: decode.Decoder(t),
-  next: fn(Result(List(t), TransactionError)) -> a,
+  next: fn(Result(List(k), TransactionError)) -> a,
 ) -> a {
   get_all_keys_ffi(tx, store, query, count, fn(result) {
     case result {
       Ok(raws) -> {
         let decoded =
           list.try_map(raws, fn(raw) {
-            case decode.run(raw, decoder) {
+            case decode.run(raw, extract_store(store).key_decoder) {
               Ok(v) -> Ok(v)
               Error(e) -> Error(UnableToDecode(e))
             }
@@ -164,7 +164,7 @@ pub fn get_all_keys(
 @external(javascript, "./transaction_ffi.mjs", "store_get_all_keys")
 fn get_all_keys_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
   next: fn(Result(List(dynamic.Dynamic), String)) -> a,
@@ -174,7 +174,7 @@ fn get_all_keys_ffi(
 ///
 pub fn count(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   next: fn(Result(Int, TransactionError)) -> a,
 ) -> a {
@@ -189,7 +189,7 @@ pub fn count(
 @external(javascript, "./transaction_ffi.mjs", "store_count")
 fn count_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   next: fn(Result(Int, String)) -> a,
 ) -> a
@@ -201,15 +201,15 @@ fn count_ffi(
 ///
 pub fn add(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
-  value: Value,
-  key_decoder: decode.Decoder(t),
-  next: fn(Result(t, TransactionError)) -> a,
+  store: TransactionStore(any, t, k),
+  value: t,
+  next: fn(Result(k, TransactionError)) -> a,
 ) -> a {
-  add_ffi(tx, store, value, fn(result) {
+  let store_config = extract_store(store)
+  add_ffi(tx, store, store_config.to_value(value, glindex.Add), fn(result) {
     case result {
       Ok(raw) ->
-        case decode.run(raw, key_decoder) {
+        case decode.run(raw, store_config.key_decoder) {
           Ok(key) -> next(Ok(key))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
@@ -221,7 +221,7 @@ pub fn add(
 @external(javascript, "./transaction_ffi.mjs", "store_add")
 fn add_ffi(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   value: Value,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
@@ -233,15 +233,15 @@ fn add_ffi(
 ///
 pub fn put(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
-  value: Value,
-  key_decoder: decode.Decoder(t),
-  next: fn(Result(t, TransactionError)) -> a,
+  store: TransactionStore(any, t, k),
+  value: t,
+  next: fn(Result(k, TransactionError)) -> a,
 ) -> a {
-  put_ffi(tx, store, value, fn(result) {
+  let store_config = extract_store(store)
+  put_ffi(tx, store, store_config.to_value(value, glindex.Put), fn(result) {
     case result {
       Ok(raw) ->
-        case decode.run(raw, key_decoder) {
+        case decode.run(raw, store_config.key_decoder) {
           Ok(key) -> next(Ok(key))
           Error(errors) -> next(Error(UnableToDecode(errors)))
         }
@@ -253,7 +253,7 @@ pub fn put(
 @external(javascript, "./transaction_ffi.mjs", "store_put")
 fn put_ffi(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   value: Value,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
 ) -> a
@@ -265,28 +265,34 @@ fn put_ffi(
 ///
 pub fn add_with_out_of_line_key(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
-  value: Value,
+  store: TransactionStore(any, t, k),
+  value: t,
   key: Value,
-  key_decoder: decode.Decoder(t),
-  next: fn(Result(t, TransactionError)) -> a,
+  next: fn(Result(k, TransactionError)) -> a,
 ) -> a {
-  add_with_out_of_line_key_ffi(tx, store, value, key, fn(result) {
-    case result {
-      Ok(raw) ->
-        case decode.run(raw, key_decoder) {
-          Ok(k) -> next(Ok(k))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
-        }
-      Error(name) -> next(Error(map_error(name)))
-    }
-  })
+  let store_config = extract_store(store)
+  add_with_out_of_line_key_ffi(
+    tx,
+    store,
+    store_config.to_value(value, glindex.AddOutOfLineKey),
+    key,
+    fn(result) {
+      case result {
+        Ok(raw) ->
+          case decode.run(raw, store_config.key_decoder) {
+            Ok(k) -> next(Ok(k))
+            Error(errors) -> next(Error(UnableToDecode(errors)))
+          }
+        Error(name) -> next(Error(map_error(name)))
+      }
+    },
+  )
 }
 
 @external(javascript, "./transaction_ffi.mjs", "store_add_with_out_of_line_key")
 fn add_with_out_of_line_key_ffi(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   value: Value,
   key: Value,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
@@ -296,28 +302,34 @@ fn add_with_out_of_line_key_ffi(
 ///
 pub fn put_with_out_of_line_key(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
-  value: Value,
+  store: TransactionStore(any, t, k),
+  value: t,
   key: Value,
-  key_decoder: decode.Decoder(t),
-  next: fn(Result(t, TransactionError)) -> a,
+  next: fn(Result(k, TransactionError)) -> a,
 ) -> a {
-  put_with_out_of_line_key_ffi(tx, store, value, key, fn(result) {
-    case result {
-      Ok(raw) ->
-        case decode.run(raw, key_decoder) {
-          Ok(k) -> next(Ok(k))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
-        }
-      Error(name) -> next(Error(map_error(name)))
-    }
-  })
+  let store_config = extract_store(store)
+  put_with_out_of_line_key_ffi(
+    tx,
+    store,
+    store_config.to_value(value, glindex.Put),
+    key,
+    fn(result) {
+      case result {
+        Ok(raw) ->
+          case decode.run(raw, store_config.key_decoder) {
+            Ok(k) -> next(Ok(k))
+            Error(errors) -> next(Error(UnableToDecode(errors)))
+          }
+        Error(name) -> next(Error(map_error(name)))
+      }
+    },
+  )
 }
 
 @external(javascript, "./transaction_ffi.mjs", "store_put_with_out_of_line_key")
 fn put_with_out_of_line_key_ffi(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   value: Value,
   key: Value,
   next: fn(Result(dynamic.Dynamic, String)) -> a,
@@ -327,7 +339,7 @@ fn put_with_out_of_line_key_ffi(
 ///
 pub fn delete(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
@@ -342,7 +354,7 @@ pub fn delete(
 @external(javascript, "./transaction_ffi.mjs", "store_delete")
 fn delete_ffi(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   next: fn(Result(Nil, String)) -> a,
 ) -> a
@@ -351,7 +363,7 @@ fn delete_ffi(
 ///
 pub fn clear(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
   clear_ffi(tx, store, fn(result) {
@@ -365,7 +377,7 @@ pub fn clear(
 @external(javascript, "./transaction_ffi.mjs", "store_clear")
 fn clear_ffi(
   tx: Transaction(ReadWrite, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   next: fn(Result(Nil, String)) -> a,
 ) -> a
 
@@ -381,7 +393,7 @@ fn clear_ffi(
 ///
 pub fn open_cursor(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
@@ -403,7 +415,7 @@ pub fn open_cursor(
 @external(javascript, "./transaction_ffi.mjs", "store_open_cursor")
 fn open_cursor_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
@@ -423,7 +435,7 @@ fn open_cursor_ffi(
 ///
 pub fn open_key_cursor(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
@@ -445,7 +457,7 @@ pub fn open_key_cursor(
 @external(javascript, "./transaction_ffi.mjs", "store_open_key_cursor")
 fn open_key_cursor_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any),
+  store: TransactionStore(any, t, k),
   query: Query,
   direction: CursorDirection,
   initial: state,
