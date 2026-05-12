@@ -1,394 +1,458 @@
-//// Single-store shortcuts for common operations.
-////
-//// Every function in this module opens its own dedicated transaction, performs
-//// one operation, and passes the result to `next`. Use these when you only
-//// need to touch a single store in one shot and do not need to compose
-//// multiple operations inside the same transaction.
-////
-//// When you need to perform several operations atomically - for example reading
-//// a record and then writing an updated version - use
-//// [`glindex/transaction`](./transaction.html) directly so that all operations
-//// share the same transaction.
-////
-//// ## Example
-////
-//// ```gleam
-//// import glindex
-//// import glindex/store
-////
-//// use track <- store.get(db, track_store, glindex.Only(glindex.int(id)), track_decoder())
-//// ```
-
+import gleam/dynamic
 import gleam/dynamic/decode
+import gleam/list
 import gleam/option
-import glindex.{
-  type Database, type Query, type ReadOnly, type ReadWrite, type Store,
-  type Value,
-}
+import glindex.{type Query, type ReadWrite, type Value}
 import glindex/cursor.{
   type Cursor, type CursorDirection, type CursorNext, type StoreCursor,
   type WithValue, type WithoutValue,
 }
-import glindex/transaction.{type TransactionError}
+import glindex/transaction.{
+  type Transaction, type TransactionError, type TransactionStore,
+  ConstraintError, DataError, InvalidStateError, NotFoundError,
+  QuotaExceededError, TransactionInactiveError, UnableToDecode, UnknownError,
+}
 
-/// Read the first record matching `query` from `store`.
+fn map_error(name: String) -> TransactionError {
+  case name {
+    "ConstraintError" -> ConstraintError
+    "DataError" -> DataError
+    "InvalidStateError" -> InvalidStateError
+    "QuotaExceededError" -> QuotaExceededError
+    "TransactionInactiveError" -> TransactionInactiveError
+    _ -> UnknownError(name)
+  }
+}
+
+/// Read the first record matching `query` from `store` and decode it.
 ///
 /// Returns `Error(NotFoundError)` when no record matches.
 ///
 pub fn get(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_get(tx, s, query, decoder, next)
-    Error(e) -> next(Error(e))
-  }
+  get_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, decoder) {
+          Ok(value) -> next(Ok(value))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error("NotFound") -> next(Error(NotFoundError))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
 
-/// Read all records matching `query` from `store`.
+@external(javascript, "./transaction_ffi.mjs", "store_get")
+fn get_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
+
+/// Read all records matching `query` from `store` and decode each one.
 ///
 /// Pass `option.Some(n)` for `count` to cap the result at `n` records.
 ///
 pub fn get_all(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   count: option.Option(Int),
   decoder: decode.Decoder(t),
   next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_get_all(tx, s, query, count, decoder, next)
-    Error(e) -> next(Error(e))
-  }
+  get_all_ffi(tx, store, query, count, fn(result) {
+    case result {
+      Ok(raws) -> {
+        let decoded =
+          list.try_map(raws, fn(raw) {
+            case decode.run(raw, decoder) {
+              Ok(v) -> Ok(v)
+              Error(e) -> Error(UnableToDecode(e))
+            }
+          })
+        case decoded {
+          Ok(values) -> next(Ok(values))
+          Error(e) -> next(Error(e))
+        }
+      }
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get_all")
+fn get_all_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  count: option.Option(Int),
+  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
+) -> a
 
 /// Read the primary key of the first record matching `query` in `store`.
 ///
 /// Returns `Error(NotFoundError)` when no record matches.
 ///
 pub fn get_key(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_get_key(tx, s, query, decoder, next)
-    Error(e) -> next(Error(e))
-  }
+  get_key_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, decoder) {
+          Ok(value) -> next(Ok(value))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error("NotFound") -> next(Error(NotFoundError))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get_key")
+fn get_key_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 /// Read the primary keys of all records matching `query` in `store`.
 ///
 /// Pass `option.Some(n)` for `count` to cap the result at `n` keys.
 ///
 pub fn get_all_keys(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   count: option.Option(Int),
   decoder: decode.Decoder(t),
   next: fn(Result(List(t), TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_get_all_keys(tx, s, query, count, decoder, next)
-    Error(e) -> next(Error(e))
-  }
+  get_all_keys_ffi(tx, store, query, count, fn(result) {
+    case result {
+      Ok(raws) -> {
+        let decoded =
+          list.try_map(raws, fn(raw) {
+            case decode.run(raw, decoder) {
+              Ok(v) -> Ok(v)
+              Error(e) -> Error(UnableToDecode(e))
+            }
+          })
+        case decoded {
+          Ok(values) -> next(Ok(values))
+          Error(e) -> next(Error(e))
+        }
+      }
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_get_all_keys")
+fn get_all_keys_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  count: option.Option(Int),
+  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
+) -> a
 
 /// Count the records matching `query` in `store`.
 ///
 pub fn count(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   next: fn(Result(Int, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_count(tx, s, query, next)
-    Error(e) -> next(Error(e))
-  }
+  count_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(n) -> next(Ok(n))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_count")
+fn count_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(Int, String)) -> a,
+) -> a
 
 /// Insert a new record into `store` and return its generated primary key.
 ///
-/// Returns `Error(ConstraintError)` if the key already exists.
+/// Returns `Error(ConstraintError)` if the record's key already exists and
+/// the store does not allow duplicates.
 ///
 pub fn add(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
   value: Value,
   key_decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_add(tx, s, value, key_decoder, next)
-    Error(e) -> next(Error(e))
-  }
+  add_ffi(tx, store, value, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(key) -> next(Ok(key))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_add")
+fn add_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 /// Insert or replace a record in `store` and return its primary key.
 ///
+/// If a record with the same key already exists it is overwritten. Use
+/// `add` instead when you want an error on duplicate keys.
+///
 pub fn put(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
   value: Value,
   key_decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_put(tx, s, value, key_decoder, next)
-    Error(e) -> next(Error(e))
-  }
+  put_ffi(tx, store, value, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(key) -> next(Ok(key))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_put")
+fn put_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 /// Insert a new record with an explicit out-of-line key.
 ///
+/// Use this when the store was created with `OutOfLineKey` and you manage
+/// keys yourself rather than letting IndexedDB generate them.
+///
 pub fn add_with_out_of_line_key(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
   value: Value,
   key: Value,
   key_decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) ->
-      transaction.store_add_with_out_of_line_key(
-        tx,
-        s,
-        value,
-        key,
-        key_decoder,
-        next,
-      )
-    Error(e) -> next(Error(e))
-  }
+  add_with_out_of_line_key_ffi(tx, store, value, key, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(k) -> next(Ok(k))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_add_with_out_of_line_key")
+fn add_with_out_of_line_key_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  key: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 /// Insert or replace a record with an explicit out-of-line key.
 ///
 pub fn put_with_out_of_line_key(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
   value: Value,
   key: Value,
   key_decoder: decode.Decoder(t),
   next: fn(Result(t, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) ->
-      transaction.store_put_with_out_of_line_key(
-        tx,
-        s,
-        value,
-        key,
-        key_decoder,
-        next,
-      )
-    Error(e) -> next(Error(e))
-  }
+  put_with_out_of_line_key_ffi(tx, store, value, key, fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, key_decoder) {
+          Ok(k) -> next(Ok(k))
+          Error(errors) -> next(Error(UnableToDecode(errors)))
+        }
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_put_with_out_of_line_key")
+fn put_with_out_of_line_key_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  value: Value,
+  key: Value,
+  next: fn(Result(dynamic.Dynamic, String)) -> a,
+) -> a
 
 /// Delete all records matching `query` from `store`.
 ///
 pub fn delete(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
   query: Query,
   next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_delete(tx, s, query, next)
-    Error(e) -> next(Error(e))
-  }
+  delete_ffi(tx, store, query, fn(result) {
+    case result {
+      Ok(_) -> next(Ok(Nil))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
+
+@external(javascript, "./transaction_ffi.mjs", "store_delete")
+fn delete_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  query: Query,
+  next: fn(Result(Nil, String)) -> a,
+) -> a
 
 /// Delete every record in `store`.
 ///
 pub fn clear(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
   next: fn(Result(Nil, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) -> transaction.store_clear(tx, s, next)
-    Error(e) -> next(Error(e))
-  }
+  clear_ffi(tx, store, fn(result) {
+    case result {
+      Ok(_) -> next(Ok(Nil))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
 
-/// Iterate over records matching `query` in `store` with a read-only cursor.
+@external(javascript, "./transaction_ffi.mjs", "store_clear")
+fn clear_ffi(
+  tx: Transaction(ReadWrite, upgrade),
+  store: TransactionStore(any),
+  next: fn(Result(Nil, String)) -> a,
+) -> a
+
+/// Open a full-value cursor over `store` and iterate with `handler`.
 ///
-/// See [`glindex/cursor`](./cursor.html) for details on the iteration model.
+/// The `initial` value seeds the accumulator. The `handler` receives the
+/// current accumulator, the cursor, and a `next` continuation. Call
+/// `cursor.continue()` to advance, `cursor.stop()` to finish early, or
+/// `cursor.advance(n)` to skip records.
+///
+/// On a `ReadWrite` transaction the cursor also supports `cursor.cursor_delete`
+/// and `cursor.cursor_update`.
 ///
 pub fn open_cursor(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   direction: CursorDirection,
   initial: state,
   handler: fn(
     state,
-    Cursor(WithValue, ReadOnly, StoreCursor),
+    Cursor(WithValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
   next: fn(Result(state, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) ->
-      transaction.store_open_cursor(
-        tx,
-        s,
-        query,
-        direction,
-        initial,
-        handler,
-        next,
-      )
-    Error(e) -> next(Error(e))
-  }
+  open_cursor_ffi(tx, store, query, direction, initial, handler, fn(result) {
+    case result {
+      Ok(state) -> next(Ok(state))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
 
-/// Iterate over records matching `query` in `store` with a read-write cursor.
-///
-/// Allows `cursor.cursor_delete` and `cursor.cursor_update` inside the handler.
-///
-pub fn open_cursor_rw(
-  db: Database,
-  store: Store(any),
+@external(javascript, "./transaction_ffi.mjs", "store_open_cursor")
+fn open_cursor_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   direction: CursorDirection,
   initial: state,
   handler: fn(
     state,
-    Cursor(WithValue, ReadWrite, StoreCursor),
+    Cursor(WithValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, TransactionError)) -> a,
-) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) ->
-      transaction.store_open_cursor(
-        tx,
-        s,
-        query,
-        direction,
-        initial,
-        handler,
-        next,
-      )
-    Error(e) -> next(Error(e))
-  }
-}
+  next: fn(Result(state, String)) -> a,
+) -> a
 
-/// Iterate over keys matching `query` in `store` with a read-only key cursor.
+/// Open a key-only cursor over `store` and iterate with `handler`.
 ///
-/// Faster than `open_cursor` when the record value is not needed.
+/// Faster than `store_open_cursor` when you only need the key (e.g. for
+/// counting or deleting by key). The cursor does not carry the record value,
+/// so `cursor_value` is not available.
 ///
 pub fn open_key_cursor(
-  db: Database,
-  store: Store(any),
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   direction: CursorDirection,
   initial: state,
   handler: fn(
     state,
-    Cursor(WithoutValue, ReadOnly, StoreCursor),
+    Cursor(WithoutValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
   next: fn(Result(state, TransactionError)) -> a,
 ) -> a {
-  let tx = transaction.prepare(db, transaction.read_only)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) ->
-      transaction.store_open_key_cursor(
-        tx,
-        s,
-        query,
-        direction,
-        initial,
-        handler,
-        next,
-      )
-    Error(e) -> next(Error(e))
-  }
+  open_key_cursor_ffi(tx, store, query, direction, initial, handler, fn(result) {
+    case result {
+      Ok(state) -> next(Ok(state))
+      Error(name) -> next(Error(map_error(name)))
+    }
+  })
 }
 
-/// Iterate over keys matching `query` in `store` with a read-write key cursor.
-///
-pub fn open_key_cursor_rw(
-  db: Database,
-  store: Store(any),
+@external(javascript, "./transaction_ffi.mjs", "store_open_key_cursor")
+fn open_key_cursor_ffi(
+  tx: Transaction(rw, upgrade),
+  store: TransactionStore(any),
   query: Query,
   direction: CursorDirection,
   initial: state,
   handler: fn(
     state,
-    Cursor(WithoutValue, ReadWrite, StoreCursor),
+    Cursor(WithoutValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, TransactionError)) -> a,
-) -> a {
-  let tx = transaction.prepare(db, transaction.read_write)
-  let #(tx, s) = transaction.store(tx, store)
-  use tx <- transaction.begin(tx)
-  case tx {
-    Ok(tx) ->
-      transaction.store_open_key_cursor(
-        tx,
-        s,
-        query,
-        direction,
-        initial,
-        handler,
-        next,
-      )
-    Error(e) -> next(Error(e))
-  }
-}
+  next: fn(Result(state, String)) -> a,
+) -> a

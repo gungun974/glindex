@@ -4,6 +4,8 @@ import gleam/option
 import glindex.{Index, Store}
 import glindex/cursor
 import glindex/database
+import glindex/index
+import glindex/store
 import glindex/transaction
 import glindex/upgrade
 
@@ -43,7 +45,7 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -53,7 +55,7 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -63,7 +65,7 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -73,7 +75,7 @@ pub fn store_open_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.store_open_cursor(
+                use result <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -134,7 +136,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -144,7 +146,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -154,7 +156,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -164,7 +166,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.store_open_cursor(
+                use result <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -235,7 +237,7 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -245,7 +247,7 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -255,7 +257,7 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -265,7 +267,7 @@ pub fn store_open_cursor_stop_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.store_open_cursor(
+                use result <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -326,7 +328,7 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -336,7 +338,7 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -346,7 +348,7 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -356,7 +358,7 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.store_open_cursor(
+                use result <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -424,7 +426,7 @@ pub fn store_open_key_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -434,7 +436,7 @@ pub fn store_open_key_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -444,7 +446,7 @@ pub fn store_open_key_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.store_open_key_cursor(
+                use result <- store.open_key_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -514,7 +516,7 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -524,7 +526,7 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -534,7 +536,7 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.index_open_cursor(
+                use result <- index.open_cursor(
                   tx,
                   name_idx,
                   glindex.All,
@@ -604,7 +606,7 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -614,7 +616,7 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -624,7 +626,7 @@ pub fn index_open_key_cursor_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use result <- transaction.index_open_key_cursor(
+                use result <- index.open_key_cursor(
                   tx,
                   name_idx,
                   glindex.All,
@@ -685,7 +687,7 @@ pub fn cursor_delete_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -695,7 +697,7 @@ pub fn cursor_delete_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -705,7 +707,7 @@ pub fn cursor_delete_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_open_cursor(
+                use _ <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -767,7 +769,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -777,7 +779,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_open_cursor(
+                use _ <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -845,7 +847,7 @@ pub fn cursor_delete_returns_ok_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -855,7 +857,7 @@ pub fn cursor_delete_returns_ok_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_open_cursor(
+                use _ <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,
@@ -912,7 +914,7 @@ pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
                 resolve(Nil)
               }
               Ok(tx) -> {
-                use _ <- transaction.store_add(
+                use _ <- store.add(
                   tx,
                   my_store,
                   glindex.object([
@@ -922,7 +924,7 @@ pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
                   decode.int,
                 )
 
-                use _ <- transaction.store_open_cursor(
+                use _ <- store.open_cursor(
                   tx,
                   my_store,
                   glindex.All,

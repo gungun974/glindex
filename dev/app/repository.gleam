@@ -4,6 +4,8 @@ import gleam/option
 import gleam/result
 import glindex.{type Database, type Index, type Store, Index, Store}
 import glindex/cursor
+import glindex/index
+import glindex/store
 import glindex/transaction.{type TransactionError}
 
 pub type TrackStore
@@ -38,7 +40,7 @@ pub fn get_track(
 
   case tx {
     Ok(tx) -> {
-      use data_result <- transaction.store_get(
+      use data_result <- store.get(
         tx,
         store,
         glindex.Only(glindex.int(id)),
@@ -68,7 +70,7 @@ pub fn get_all_tracks_by_artist(
 
   case tx {
     Ok(tx) -> {
-      use data_result <- transaction.index_get_all(
+      use data_result <- index.get_all(
         tx,
         index,
         glindex.Only(glindex.string(artist)),
@@ -97,7 +99,7 @@ pub fn add_track(
 
   case tx {
     Ok(tx) -> {
-      use maybe_id <- transaction.store_add(
+      use maybe_id <- store.add(
         tx,
         store,
         glindex.object([
@@ -111,7 +113,7 @@ pub fn add_track(
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- transaction.store_get(
+          use data_result <- store.get(
             tx,
             store,
             glindex.Only(glindex.int(id)),
@@ -142,7 +144,7 @@ pub fn put_track(
 
   case tx {
     Ok(tx) -> {
-      use maybe_id <- transaction.store_put(
+      use maybe_id <- store.put(
         tx,
         store,
         glindex.object([
@@ -157,7 +159,7 @@ pub fn put_track(
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- transaction.store_get(
+          use data_result <- store.get(
             tx,
             store,
             glindex.Only(glindex.int(id)),
@@ -188,7 +190,7 @@ pub fn get_tracks_shorter_than(
 
   case tx {
     Ok(tx) -> {
-      use result <- transaction.store_open_cursor(
+      use result <- store.open_cursor(
         tx,
         store,
         glindex.All,
@@ -226,7 +228,7 @@ pub fn delete_tracks_by_artist(
 
   case tx {
     Ok(tx) -> {
-      use result <- transaction.index_open_cursor(
+      use result <- index.open_cursor(
         tx,
         index,
         glindex.Only(glindex.string(artist)),
@@ -259,7 +261,7 @@ pub fn rename_artist(
 
   case tx {
     Ok(tx) -> {
-      use result <- transaction.index_open_cursor(
+      use result <- index.open_cursor(
         tx,
         index,
         glindex.Only(glindex.string(old_name)),
@@ -305,7 +307,7 @@ pub fn get_tracks_from_prolific_artists(
 
   case tx {
     Ok(tx) -> {
-      use result <- transaction.store_open_cursor(
+      use result <- store.open_cursor(
         tx,
         store,
         glindex.All,
@@ -314,7 +316,7 @@ pub fn get_tracks_from_prolific_artists(
         fn(acc, cur, next) {
           case cursor.cursor_value(cur, track_decoder()) {
             Ok(track) -> {
-              use count_result <- transaction.index_count(
+              use count_result <- index.count(
                 tx,
                 index,
                 glindex.Only(glindex.string(track.artist)),
@@ -348,7 +350,7 @@ pub fn delete_track(
 
   case tx {
     Ok(tx) -> {
-      use data_result <- transaction.store_get(
+      use data_result <- store.get(
         tx,
         store,
         glindex.Only(glindex.int(id)),
@@ -356,11 +358,7 @@ pub fn delete_track(
       )
       case data_result {
         Ok(track) -> {
-          use _ <- transaction.store_delete(
-            tx,
-            store,
-            glindex.Only(glindex.int(id)),
-          )
+          use _ <- store.delete(tx, store, glindex.Only(glindex.int(id)))
           next(Ok(track))
         }
         Error(e) -> next(Error(e))
