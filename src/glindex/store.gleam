@@ -1,3 +1,30 @@
+//// Read and write operations on object stores within a transaction.
+////
+//// All functions accept an active `Transaction` and a `TransactionStore` handle
+//// obtained from [`glindex/transaction.store`](./transaction.html#store), and
+//// return a `Promise`. Use [`glindex/transaction`](./transaction.html) to build
+//// and start the transaction first.
+////
+//// ## Example
+////
+//// ```gleam
+//// import gleam/javascript/promise
+//// import gleam/option
+//// import glindex
+//// import glindex/store
+//// import glindex/transaction
+////
+//// pub fn get_all_tracks(db) {
+////   let tx = transaction.prepare(db, transaction.read_only)
+////   let #(tx, s) = transaction.store(tx, track_store())
+////   use tx <- promise.await(transaction.begin(tx))
+////   case tx {
+////     Ok(tx) -> store.get_all(tx, s, glindex.All, option.None)
+////     Error(e) -> promise.resolve(Error(e))
+////   }
+//// }
+//// ```
+
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
@@ -373,10 +400,11 @@ fn clear_ffi(
 
 /// Open a full-value cursor over `store` and iterate with `handler`.
 ///
-/// The `initial` value seeds the accumulator. The `handler` receives the
-/// current accumulator, the cursor, and a `next` continuation. Call
-/// `cursor.continue()` to advance, `cursor.stop()` to finish early, or
-/// `cursor.advance(n)` to skip records.
+/// `initial` seeds the accumulator. The `handler` receives the current
+/// accumulator and the cursor, and must return a `Promise` of the new
+/// accumulator paired with a `CursorNext` instruction. Use `cursor.continue()`
+/// to advance, `cursor.stop()` to finish early, or `cursor.advance(n)` to
+/// skip records.
 ///
 /// On a `ReadWrite` transaction the cursor also supports `cursor.cursor_delete`
 /// and `cursor.cursor_update`.
@@ -419,9 +447,9 @@ fn open_cursor_ffi(
 
 /// Open a key-only cursor over `store` and iterate with `handler`.
 ///
-/// Faster than `store_open_cursor` when you only need the key (e.g. for
-/// counting or deleting by key). The cursor does not carry the record value,
-/// so `cursor_value` is not available.
+/// Faster than `open_cursor` when you only need the key (e.g. for counting or
+/// bulk deletes). The cursor does not carry the record value, so
+/// `cursor.cursor_value` is not available.
 ///
 pub fn open_key_cursor(
   tx: Transaction(rw, upgrade),

@@ -44,12 +44,7 @@
 ////     )
 ////   Nil
 //// })
-//// |> database.open(fn(result) {
-////   case result {
-////     Ok(db) -> use_db(db)
-////     Error(_) -> Nil
-////   }
-//// })
+//// |> database.open()
 //// ```
 
 import gleam/bool
@@ -182,11 +177,10 @@ pub fn on_close(
   )
 }
 
-/// Open the database, running any pending migrations, and pass the result to
-/// `next`.
+/// Open the database, running any pending migrations, and return a `Promise`.
 ///
-/// Returns `Error(VersionError)` immediately without touching the browser if
-/// the target version is <= 0 or any migration has an invalid or duplicate
+/// Resolves to `Error(VersionError)` immediately without touching the browser
+/// if the target version is <= 0 or any migration has an invalid or duplicate
 /// version number.
 ///
 pub fn open(

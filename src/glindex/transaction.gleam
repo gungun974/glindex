@@ -1,38 +1,41 @@
-//// Classic IndexedDB-style transactions over one or more object stores.
+//// Build and start IndexedDB transactions over one or more object stores.
 ////
 //// All database operations run inside a transaction. Build one with
-//// `prepare`, register the stores you need with `store`, then call `begin`
-//// to start it. Every operation takes a `next` continuation so calls chain
-//// naturally with Gleam's `use` syntax.
+//// `prepare`, register the stores you need with `store`, then `await` the
+//// `Promise` returned by `begin`. Store and index operations are then
+//// performed via the [`glindex/store`](./store.html) and
+//// [`glindex/index`](./index.html) modules.
 ////
 //// ## Example
 ////
 //// ```gleam
+//// import gleam/javascript/promise
 //// import glindex
+//// import glindex/store
 //// import glindex/transaction
 ////
-//// pub fn get_track(db, id, next) {
+//// pub fn get_track(db, id) {
 ////   let tx = transaction.prepare(db, transaction.read_only)
-////   let #(tx, store) = transaction.store(tx, track_store)
-////   use tx <- transaction.begin(tx)
+////   let #(tx, s) = transaction.store(tx, track_store())
+////   use tx <- promise.await(transaction.begin(tx))
 ////   case tx {
-////     Ok(tx) -> {
-////       use result <- transaction.store_get(
-////         tx,
-////         store,
-////         glindex.Only(glindex.int(id)),
-////         track_decoder(),
-////       )
-////       next(result)
-////     }
-////     Error(e) -> next(Error(e))
+////     Ok(tx) -> store.get(tx, s, glindex.Only(id))
+////     Error(e) -> promise.resolve(Error(e))
 ////   }
 //// }
 //// ```
 ////
-//// IndexedDB auto-commits a transaction as soon as no more requests are
-//// pending, so you generally do not need to call `commit` explicitly. Call
-//// `abort` to roll back all changes made in the transaction.
+//// ## Transaction lifetime
+////
+//// IndexedDB auto-commits a transaction as soon as it has no pending requests
+//// and all microtasks have been processed. **Do not `await` anything unrelated
+//// to the database inside a transaction** - for example, an HTTP request or a
+//// timer. If the event loop goes idle between two database operations, the
+//// transaction will have already committed and the next operation will fail
+//// with `TransactionInactiveError`.
+////
+//// You generally do not need to call `commit` explicitly. Call `abort` to
+//// roll back all changes made in the transaction.
 
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
@@ -63,6 +66,10 @@ pub const read_only: TransactionMode(ReadOnly) = TransactionReadOnly
 ///
 pub const read_write: TransactionMode(ReadWrite) = TransactionReadWrite
 
+/// Builder used to declare which stores a transaction will access before it is
+/// started. Obtain one from `prepare`, add stores with `store`, then call
+/// `begin` to open the transaction.
+///
 pub type TransactionBuilder(readonly)
 
 /// Durability hint passed to the browser when creating the transaction.
@@ -136,13 +143,14 @@ fn prepare_ffi(db: Database, mode: String) -> TransactionBuilder(readonly)
 
 /// Register an object store on the builder and receive a typed handle.
 ///
-/// Returns a tuple of `#(builder, store_handle)`.
+/// Returns a tuple of `#(updated_builder, store_handle)`. Chain multiple calls
+/// to register all stores the transaction will access before calling `begin`.
 ///
 /// ```gleam
 /// let tx = transaction.prepare(db, transaction.read_write)
-/// let #(tx, tracks) = transaction.store(tx, track_store)
-/// let #(tx, artists) = transaction.store(tx, artist_store)
-/// use tx <- transaction.begin(tx)
+/// let #(tx, tracks) = transaction.store(tx, track_store())
+/// let #(tx, artists) = transaction.store(tx, artist_store())
+/// use tx <- promise.await(transaction.begin(tx))
 /// ```
 ///
 pub fn store(
@@ -251,10 +259,10 @@ fn on_abort_ffi(
   handler: fn(Option(String)) -> Nil,
 ) -> TransactionBuilder(readonly)
 
-/// Start the transaction and pass the result to `next`.
+/// Start the transaction and return a `Promise` resolving to the active handle.
 ///
-/// Returns `Ok(transaction)` if the transaction was opened successfully, or
-/// `Error(TransactionError)` if it could not be started.
+/// Resolves to `Ok(transaction)` if the transaction was opened successfully,
+/// or `Error(TransactionError)` if it could not be started.
 ///
 pub fn begin(
   builder: TransactionBuilder(readonly),

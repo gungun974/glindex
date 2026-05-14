@@ -1,3 +1,31 @@
+//// Read operations on indexes within a transaction.
+////
+//// All functions accept an active `Transaction` and a `TransactionIndex` handle
+//// obtained from [`glindex/transaction.index`](./transaction.html#index), and
+//// return a `Promise`. Use [`glindex/transaction`](./transaction.html) to build
+//// and start the transaction first.
+////
+//// ## Example
+////
+//// ```gleam
+//// import gleam/javascript/promise
+//// import gleam/option
+//// import glindex
+//// import glindex/index
+//// import glindex/transaction
+////
+//// pub fn get_tracks_by_artist(db, artist) {
+////   let tx = transaction.prepare(db, transaction.read_only)
+////   let #(tx, s) = transaction.store(tx, track_store())
+////   let idx = transaction.index(s, track_artist_index())
+////   use tx <- promise.await(transaction.begin(tx))
+////   case tx {
+////     Ok(tx) -> index.get_all(tx, idx, glindex.Only(artist), option.None)
+////     Error(e) -> promise.resolve(Error(e))
+////   }
+//// }
+//// ```
+
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
@@ -193,8 +221,9 @@ fn get_all_ffi(
 
 /// Open a full-value cursor over `index` and iterate with `handler`.
 ///
-/// Same semantics as `store_open_cursor` but walks records sorted by the
-/// index key rather than by primary key.
+/// Same semantics as `store.open_cursor` but walks records sorted by the
+/// index key rather than by primary key. Supports `cursor.continue_primary_key`
+/// for efficient seeks within the index.
 ///
 pub fn open_cursor(
   tx: Transaction(rw, upgrade),
@@ -234,8 +263,8 @@ fn open_cursor_ffi(
 
 /// Open a key-only cursor over `index` and iterate with `handler`.
 ///
-/// Faster than `index_open_cursor` when only the index key or primary key is
-/// needed.
+/// Faster than `open_cursor` when you only need the index key or primary key,
+/// without fetching the full record value.
 ///
 pub fn open_key_cursor(
   tx: Transaction(rw, upgrade),

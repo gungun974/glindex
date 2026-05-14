@@ -2,29 +2,31 @@
 ////
 //// Cursors let you walk through a range of records one at a time, optionally
 //// mutating or deleting each one as you go. They are opened via
-//// [`glindex/transaction.store_open_cursor`](./transaction.html#store_open_cursor)
-//// and [`glindex/transaction.index_open_cursor`](./transaction.html#index_open_cursor).
+//// [`glindex/store.open_cursor`](./store.html#open_cursor) and
+//// [`glindex/index.open_cursor`](./index.html#open_cursor).
 ////
 //// The iteration model is accumulator-based: your handler receives the current
-//// accumulator, the cursor, and a `next` continuation. Return `cursor.continue()`
-//// to advance, `cursor.stop()` to finish early, or `cursor.advance(n)` to skip
-//// ahead. The final accumulator is returned as the `Result` of the cursor call.
+//// accumulator and the cursor, and returns a `Promise` of the new accumulator
+//// paired with a navigation instruction. Use `cursor.continue()` to advance,
+//// `cursor.stop()` to finish early, or `cursor.advance(n)` to skip ahead.
+//// The final accumulator is returned as the `Result` of the cursor call.
+////
+//// **Transaction lifetime warning**: the same rule as for regular operations
+//// applies inside a cursor handler - do not `await` anything unrelated to the
+//// database (HTTP requests, timers, etc.) between cursor steps, or the
+//// transaction will auto-close and the next step will fail with
+//// `TransactionInactiveError`.
 ////
 //// ## Example
 ////
 //// ```gleam
-//// use result <- transaction.store_open_cursor(
-////   tx,
-////   store,
-////   glindex.All,
-////   cursor.Next,
-////   [],
-////   fn(acc, cur, next) {
-////     case cursor.cursor_value(cur, track_decoder()) {
-////       Ok(track) -> next([track, ..acc], cursor.continue())
-////       Error(_) -> next(acc, cursor.stop())
+//// use result <- promise.await(
+////   store.open_cursor(tx, s, glindex.All, cursor.Next, [], fn(acc, cur) {
+////     case cursor.cursor_value(cur) {
+////       Ok(track) -> promise.resolve(#([track, ..acc], cursor.continue()))
+////       Error(_) -> promise.resolve(#(acc, cursor.stop()))
 ////     }
-////   },
+////   }),
 //// )
 //// ```
 
@@ -178,8 +180,9 @@ fn extract_cursor(
 
 /// Decode and return the record at the current cursor position.
 ///
-/// Only available on cursors opened with `store_open_cursor` or
-/// `index_open_cursor` (`WithValue`).
+/// Only available on cursors opened with `store.open_cursor` or
+/// `index.open_cursor` (`WithValue`). Key-only cursors do not carry the record
+/// value and cannot call this function.
 ///
 pub fn cursor_value(
   cursor: Cursor(WithValue, mode, source, t, p, k),
@@ -278,7 +281,8 @@ fn cursor_delete_ffi(
 /// Replace the record at the current cursor position with `value`.
 ///
 /// Only available on read-write cursors (`ReadWrite`) that carry a value
-/// (`WithValue`). The key of the record does not change.
+/// (`WithValue`). The key of the record does not change. `value` is serialized
+/// using the `to_value` function from the store definition.
 ///
 pub fn cursor_update(
   cursor: Cursor(WithValue, ReadWrite, source, t, p, k),

@@ -1,19 +1,20 @@
 //// Core types and value converters for glindex.
 ////
 //// This module exposes the fundamental building blocks used across the entire
-//// library. Use the `Store` and `Index` types to make your schema
-//// type-safe, the `Query` type for targeting records, and helpers for
-//// converting Gleam values into `Value` that IndexedDB
-//// can understand for inserting and querying.
+//// library. Use `store` and `index` to declare type-safe store and index
+//// definitions that bundle their name together with serialization and
+//// deserialization codecs. Use `Query` to target records by key, and the value
+//// helpers (`int`, `string`, `float`, `object`, …) to build the `Value`s that
+//// IndexedDB operates on.
 ////
 //// The recommended entry points for actual database work are:
 ////
 //// - [`glindex/database`](./glindex/database.html) - open and manage databases.
-//// - [`glindex/upgrade`](./glindex/upgrade.html) - schema migration operations for IndexedDB.
-//// - [`glindex/transaction`](./glindex/transaction.html) - classic IndexedDB-style transactions over one or more object stores.
+//// - [`glindex/upgrade`](./glindex/upgrade.html) - schema migrations inside a version-change transaction.
+//// - [`glindex/transaction`](./glindex/transaction.html) - build and start transactions over one or more object stores.
+//// - [`glindex/store`](./glindex/store.html) - read and write operations on object stores within a transaction.
+//// - [`glindex/index`](./glindex/index.html) - read operations on indexes within a transaction.
 //// - [`glindex/cursor`](./glindex/cursor.html) - cursor-based iteration over store or index records.
-//// - [`glindex/store`](./glindex/store.html) - quick one-shot transaction for a single store operation.
-//// - [`glindex/index`](./glindex/index.html) - quick one-shot transaction for a single index operation.
 
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode
@@ -24,14 +25,25 @@ import gleam/order.{type Order}
 import gleam/time/calendar.{type Date, type TimeOfDay}
 import gleam/time/timestamp.{type Timestamp}
 
-/// A reference to an IndexedDB object store.
+/// A definition of an IndexedDB object store, bundling its name with the
+/// codecs needed to serialize records and keys to `Value` and decode them back.
 ///
-/// Each `Store` holds the name of the store as it is declared in the database
-/// schema. Declare one constant per store and reuse it wherever you need to
-/// read from or write to that store:
+/// Create one with `store` (inline key) or `store_with_out_of_line_key`
+/// (out-of-line key), then pass it to `transaction.store` to obtain a handle
+/// for use inside a transaction:
 ///
 /// ```gleam
-/// pub const track_store: Store(TrackStore) = Store("tracks")
+/// pub type TrackStore
+///
+/// pub fn track_store() -> Store(TrackStore, _, _, _) {
+///   glindex.store(
+///     name: "tracks",
+///     to_value: fn(track: Track, _action) { ... },
+///     decoder: track_decoder(),
+///     to_key: fn(id: Int) { glindex.int(id) },
+///     key_decoder: decode.int,
+///   )
+/// }
 /// ```
 ///
 pub opaque type Store(store_type, key_mode, t, k) {
@@ -44,10 +56,19 @@ pub opaque type Store(store_type, key_mode, t, k) {
   )
 }
 
+@internal
 pub type InlineKey
 
+@internal
 pub type OutOfLineKey
 
+/// Create a store definition with an inline key.
+///
+/// Use this when the primary key is a property of the stored object (i.e. the
+/// store was created with a `KeyPath`). The `to_value` function receives the
+/// record and an `Action` so you can omit the key field on `Add` when
+/// IndexedDB generates it automatically.
+///
 pub fn store(
   name name: String,
   to_value to_value: fn(t, Action) -> Value,
@@ -58,6 +79,13 @@ pub fn store(
   Store(name:, to_value:, decoder:, to_key:, key_decoder:)
 }
 
+/// Create a store definition with an out-of-line key.
+///
+/// Use this when the store was created with `OutOfLineKey` and the primary key
+/// is not embedded in the object. Write operations require supplying the key
+/// separately via `store.add_with_out_of_line_key` or
+/// `store.put_with_out_of_line_key`.
+///
 pub fn store_with_out_of_line_key(
   name name: String,
   to_value to_value: fn(t, Action) -> Value,
@@ -101,23 +129,36 @@ pub fn store_key_decoder(
   store.key_decoder
 }
 
+/// Indicates whether a write operation is an insert or an upsert.
+///
+/// Passed to the `to_value` function of a `Store` so the serializer can
+/// produce a different object shape for each case - typically to omit the
+/// primary key field on `Add` when IndexedDB generates the key automatically,
+/// and to include it on `Put` so the existing record is correctly replaced.
+///
 pub type Action {
   Add
   Put
 }
 
-/// A reference to an index on a specific object store.
+/// A definition of an IndexedDB index, bundling its name with the codecs
+/// needed to serialize and decode the index key.
 ///
-/// Each `Index` holds the name of the index as it is declared in the database
-/// schema. Declare one constant per index and pass it to query functions
-/// alongside its corresponding store:
+/// The phantom type `store_type` links the index to its parent store - the
+/// compiler will reject any attempt to use an index with a store of a
+/// different type.
+///
+/// Create one with `index` and pass it to `transaction.index` to obtain a
+/// handle for use inside a transaction:
 ///
 /// ```gleam
-/// pub const track_artist_index: Index(TrackStore) = Index("tracks_artist")
-///
-/// pub const track_artist_album_index: Index(TrackStore) = Index(
-///   "tracks_artist_and_album",
-/// )
+/// pub fn track_artist_index() -> Index(TrackStore, _, _, _) {
+///   glindex.index(
+///     name: "tracks_artist",
+///     to_index_key: fn(artist: String) { glindex.string(artist) },
+///     index_key_decoder: decode.string,
+///   )
+/// }
 /// ```
 ///
 pub opaque type Index(store_type, t, k, i) {
@@ -128,6 +169,12 @@ pub opaque type Index(store_type, t, k, i) {
   )
 }
 
+/// Create an index definition.
+///
+/// `to_index_key` converts a Gleam value into the `Value` used to query the
+/// index. `index_key_decoder` reads the raw index key back into a Gleam value
+/// when iterating via a cursor.
+///
 pub fn index(
   name name: String,
   to_index_key to_index_key: fn(i) -> Value,
@@ -171,12 +218,10 @@ pub type Normal
 @internal
 pub type VersionChange
 
-/// An opaque JavaScript value can be used with IndexedDB.
-///
-/// Used in both inserting and quering data
+/// An opaque JavaScript value that IndexedDB can store or use as a key.
 ///
 /// Convert Gleam values to `Value` using the helpers in this module:
-/// `int`, `string`, `float`, `bool`, `array`, `object`, and so on.
+/// `int`, `string`, `float`, `bool`, `bytea`, `array`, `object`, and so on.
 ///
 pub type Value
 
