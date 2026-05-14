@@ -147,7 +147,7 @@ fn store_ffi(name: String) -> TransactionStore(Nil, Nil, Nil)
 pub fn index(
   store: TransactionStore(store_type, t, k),
   name: String,
-) -> TransactionIndex(t, k2) {
+) -> TransactionIndex(t, k, i) {
   index_ffi(store, name)
 }
 
@@ -155,7 +155,7 @@ pub fn index(
 fn index_ffi(
   store: TransactionStore(store_type, t, k),
   name: String,
-) -> TransactionIndex(t, k2)
+) -> TransactionIndex(t, k, i)
 
 /// Create a new object store and return a handle to it.
 ///
@@ -199,26 +199,26 @@ fn delete_store_ffi(
 ///
 pub fn create_index(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
   key_path: KeyPath,
   options: IndexOptions,
-) -> Result(TransactionIndex(t, k), UpgradeError) {
+) -> Result(TransactionIndex(t, k, i), UpgradeError) {
   create_index_ffi(tx, index, key_path, options) |> result.map_error(map_error)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "create_index")
 fn create_index_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
   key_path: KeyPath,
   options: IndexOptions,
-) -> Result(TransactionIndex(t, k), String)
+) -> Result(TransactionIndex(t, k, i), String)
 
 /// Delete an existing index from its object store.
 ///
 pub fn delete_index(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(Nil, UpgradeError) {
   delete_index_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -226,7 +226,7 @@ pub fn delete_index(
 @external(javascript, "./upgrade_ffi.mjs", "delete_index")
 fn delete_index_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(Nil, String)
 
 /// Return the key path configuration of a store.
@@ -263,7 +263,7 @@ fn store_auto_increment_ffi(
 ///
 pub fn index_key_path(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(KeyPath, UpgradeError) {
   index_key_path_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -271,14 +271,14 @@ pub fn index_key_path(
 @external(javascript, "./upgrade_ffi.mjs", "index_key_path")
 fn index_key_path_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(KeyPath, String)
 
 /// Return whether the index enforces uniqueness.
 ///
 pub fn index_unique(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(Bool, UpgradeError) {
   index_unique_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -286,14 +286,14 @@ pub fn index_unique(
 @external(javascript, "./upgrade_ffi.mjs", "index_unique")
 fn index_unique_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(Bool, String)
 
 /// Return whether the index uses multi-entry mode.
 ///
 pub fn index_multi_entry(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(Bool, UpgradeError) {
   index_multi_entry_ffi(tx, index) |> result.map_error(map_error)
 }
@@ -301,7 +301,7 @@ pub fn index_multi_entry(
 @external(javascript, "./upgrade_ffi.mjs", "index_multi_entry")
 fn index_multi_entry_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> Result(Bool, String)
 
 /// Rename an object store. Returns a handle with the new name.
@@ -325,18 +325,18 @@ fn rename_store_ffi(
 ///
 pub fn rename_index(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
   new_name: String,
-) -> Result(TransactionIndex(t, k), UpgradeError) {
+) -> Result(TransactionIndex(t, k, i), UpgradeError) {
   rename_index_ffi(tx, index, new_name) |> result.map_error(map_error)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "rename_index")
 fn rename_index_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
   new_name: String,
-) -> Result(TransactionIndex(t, k), String)
+) -> Result(TransactionIndex(t, k, i), String)
 
 /// Return the names of all object stores in the database.
 ///

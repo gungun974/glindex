@@ -34,12 +34,13 @@ fn test_store() {
       use name <- decode.field("name", decode.string)
       decode.success(#(id, name))
     },
+    to_key: fn(key) { glindex.int(key) },
     key_decoder: decode.int,
   )
 }
 
 fn test_index() {
-  Index(name: "name_idx")
+  Index(name: "name_idx", to_index_key: fn(key) { glindex.string(key) })
 }
 
 pub fn store_open_cursor_test() -> Promise(Nil) {

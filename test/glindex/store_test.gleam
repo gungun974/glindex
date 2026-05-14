@@ -33,6 +33,7 @@ fn test_store() {
       use name <- decode.field("name", decode.string)
       decode.success(#(id, name))
     },
+    to_key: fn(key) { glindex.int(key) },
     key_decoder: decode.int,
   )
 }
@@ -145,9 +146,7 @@ pub fn store_get_test() -> Promise(Nil) {
         let #(builder, my_store) = transaction.store(builder, test_store())
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add(tx, my_store, #(1, "Alice"))
-          |> promise.await(fn(_) {
-            store.get(tx, my_store, glindex.Only(glindex.int(1)))
-          })
+          |> promise.await(fn(_) { store.get(tx, my_store, glindex.Only(1)) })
           |> promise.map(fn(result) {
             let assert Ok(#(1, "Alice")) = result
 
@@ -243,7 +242,7 @@ pub fn store_get_key_test() -> Promise(Nil) {
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add(tx, my_store, #(42, "Alice"))
           |> promise.await(fn(_) {
-            store.get_key(tx, my_store, glindex.Only(glindex.int(42)))
+            store.get_key(tx, my_store, glindex.Only(42))
           })
           |> promise.map(fn(result) {
             let assert Ok(42) = result
@@ -382,9 +381,7 @@ pub fn store_delete_test() -> Promise(Nil) {
         let #(builder, my_store) = transaction.store(builder, test_store())
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add(tx, my_store, #(1, "Alice"))
-          |> promise.await(fn(_) {
-            store.delete(tx, my_store, glindex.Only(glindex.int(1)))
-          })
+          |> promise.await(fn(_) { store.delete(tx, my_store, glindex.Only(1)) })
           |> promise.map(fn(_) { Ok(Nil) })
         })
         |> promise.tap(fn(_) { database.close(db) })
@@ -478,6 +475,7 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
                 use name <- decode.field("name", decode.string)
                 decode.success(name)
               },
+              to_key: fn(key) { glindex.int(key) },
               key_decoder: decode.int,
             ),
           )
@@ -486,7 +484,7 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
           |> promise.await(fn(key) {
             let assert Ok(1) = key
 
-            store.get(tx, my_store, glindex.Only(glindex.int(1)))
+            store.get(tx, my_store, glindex.Only(1))
           })
           |> promise.map(fn(result) {
             let assert Ok("Alice") = result
@@ -543,6 +541,12 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
                 use last_name <- decode.field("last_name", decode.string)
                 decode.success(#(first_name, last_name))
               },
+              to_key: fn(key: #(String, String)) {
+                glindex.array([
+                  glindex.string(key.0),
+                  glindex.string(key.1),
+                ])
+              },
               key_decoder: {
                 use first_name <- decode.field("first_name", decode.string)
                 use last_name <- decode.field("last_name", decode.string)
@@ -553,16 +557,7 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add(tx, my_store, #("Alice", "Smith"))
           |> promise.await(fn(_) {
-            store.get(
-              tx,
-              my_store,
-              glindex.Only(
-                glindex.array([
-                  glindex.string("Alice"),
-                  glindex.string("Smith"),
-                ]),
-              ),
-            )
+            store.get(tx, my_store, glindex.Only(#("Alice", "Smith")))
           })
           |> promise.map(fn(result) {
             let assert Ok(#("Alice", "Smith")) = result
@@ -703,7 +698,7 @@ pub fn store_get_not_found_test() -> Promise(Nil) {
         let builder = transaction.prepare(db, transaction.read_only)
         let #(builder, my_store) = transaction.store(builder, test_store())
         promise.try_await(transaction.begin(builder), fn(tx) {
-          store.get(tx, my_store, glindex.Only(glindex.int(999)))
+          store.get(tx, my_store, glindex.Only(999))
           |> promise.map(fn(result) {
             let assert Error(transaction.NotFoundError) = result
             Ok(Nil)
@@ -742,7 +737,7 @@ pub fn store_get_key_not_found_test() -> Promise(Nil) {
         let builder = transaction.prepare(db, transaction.read_only)
         let #(builder, my_store) = transaction.store(builder, test_store())
         promise.try_await(transaction.begin(builder), fn(tx) {
-          store.get_key(tx, my_store, glindex.Only(glindex.int(999)))
+          store.get_key(tx, my_store, glindex.Only(999))
           |> promise.map(fn(result) {
             let assert Error(transaction.NotFoundError) = result
 
@@ -787,6 +782,7 @@ pub fn store_add_data_error_test() -> Promise(Nil) {
               name: "my_store",
               to_value: fn(_: #(Int, String), _) { glindex.null() },
               decoder: decode.success(#(0, "")),
+              to_key: fn(_) { glindex.null() },
               key_decoder: decode.dynamic,
             ),
           )
@@ -845,6 +841,7 @@ pub fn store_add_constraint_error_test() -> Promise(Nil) {
                 use name <- decode.field("name", decode.string)
                 decode.success(#(id, name))
               },
+              to_key: fn(key) { glindex.int(key) },
               key_decoder: decode.int,
             ),
           )

@@ -39,6 +39,7 @@ pub type Store(store_type, t, k) {
     name: String,
     to_value: fn(t, Action) -> Value,
     decoder: decode.Decoder(t),
+    to_key: fn(k) -> Value,
     key_decoder: decode.Decoder(k),
   )
 }
@@ -64,8 +65,8 @@ pub type Action {
 /// )
 /// ```
 ///
-pub type Index(store_type, t, k) {
-  Index(name: String)
+pub type Index(store_type, t, k, i) {
+  Index(name: String, to_index_key: fn(i) -> Value)
 }
 
 /// Hold an IndexedDB database connection.
@@ -106,17 +107,12 @@ pub type Value
 /// - `Bound(lower, upper, excl_lower, excl_upper)` - records whose key falls
 ///   within the given range.
 ///
-pub type Query {
+pub type Query(v) {
   All
-  Only(Value)
-  LowerBound(value: Value, exclusive: Bool)
-  UpperBound(value: Value, exclusive: Bool)
-  Bound(
-    lower: Value,
-    upper: Value,
-    exclusive_lower: Bool,
-    exclusive_upper: Bool,
-  )
+  Only(v)
+  LowerBound(value: v, exclusive: Bool)
+  UpperBound(value: v, exclusive: Bool)
+  Bound(lower: v, upper: v, exclusive_lower: Bool, exclusive_upper: Bool)
 }
 
 /// A `Value` representing JavaScript `null`.

@@ -34,12 +34,13 @@ fn test_store() {
       use name <- decode.field("name", decode.string)
       decode.success(#(id, name))
     },
+    to_key: fn(key) { glindex.int(key) },
     key_decoder: decode.int,
   )
 }
 
 fn test_index() {
-  Index(name: "name_idx")
+  Index(name: "name_idx", to_index_key: fn(key) { glindex.string(key) })
 }
 
 pub fn index_get_test() -> Promise(Nil) {
@@ -79,7 +80,7 @@ pub fn index_get_test() -> Promise(Nil) {
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add(tx, my_store, #(1, "Alice"))
           |> promise.await(fn(_) {
-            index.get(tx, name_idx, glindex.Only(glindex.string("Alice")))
+            index.get(tx, name_idx, glindex.Only("Alice"))
           })
           |> promise.map(fn(result) {
             let assert Ok(#(1, "Alice")) = result
@@ -135,7 +136,7 @@ pub fn index_get_key_test() -> Promise(Nil) {
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add(tx, my_store, #(1, "Alice"))
           |> promise.await(fn(_) {
-            index.get_key(tx, name_idx, glindex.Only(glindex.string("Alice")))
+            index.get_key(tx, name_idx, glindex.Only("Alice"))
           })
           |> promise.map(fn(result) {
             let assert Ok(1) = result
@@ -192,12 +193,7 @@ pub fn index_get_all_test() -> Promise(Nil) {
           store.add(tx, my_store, #(1, "Alice"))
           |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Alice")) })
           |> promise.await(fn(_) {
-            index.get_all(
-              tx,
-              name_idx,
-              glindex.Only(glindex.string("Alice")),
-              option.None,
-            )
+            index.get_all(tx, name_idx, glindex.Only("Alice"), option.None)
           })
           |> promise.map(fn(result) {
             let assert Ok(ids) = result
@@ -256,12 +252,7 @@ pub fn index_get_all_keys_test() -> Promise(Nil) {
           store.add(tx, my_store, #(1, "Alice"))
           |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Alice")) })
           |> promise.await(fn(_) {
-            index.get_all_keys(
-              tx,
-              name_idx,
-              glindex.Only(glindex.string("Alice")),
-              option.None,
-            )
+            index.get_all_keys(tx, name_idx, glindex.Only("Alice"), option.None)
           })
           |> promise.map(fn(result) {
             let assert Ok([1, 2]) = result
@@ -318,7 +309,7 @@ pub fn index_count_test() -> Promise(Nil) {
           store.add(tx, my_store, #(1, "Alice"))
           |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Alice")) })
           |> promise.await(fn(_) {
-            index.count(tx, name_idx, glindex.Only(glindex.string("Alice")))
+            index.count(tx, name_idx, glindex.Only("Alice"))
           })
           |> promise.map(fn(result) {
             let assert Ok(2) = result
@@ -371,7 +362,7 @@ pub fn index_get_not_found_test() -> Promise(Nil) {
         let #(builder, my_store) = transaction.store(builder, test_store())
         let name_idx = transaction.index(my_store, test_index())
         promise.try_await(transaction.begin(builder), fn(tx) {
-          index.get(tx, name_idx, glindex.Only(glindex.string("Nobody")))
+          index.get(tx, name_idx, glindex.Only("Nobody"))
           |> promise.map(fn(result) {
             let assert Error(transaction.NotFoundError) = result
 
@@ -420,7 +411,7 @@ pub fn index_get_key_not_found_test() -> Promise(Nil) {
         let #(builder, my_store) = transaction.store(builder, test_store())
         let name_idx = transaction.index(my_store, test_index())
         promise.try_await(transaction.begin(builder), fn(tx) {
-          index.get_key(tx, name_idx, glindex.Only(glindex.string("Nobody")))
+          index.get_key(tx, name_idx, glindex.Only("Nobody"))
           |> promise.map(fn(result) {
             let assert Error(transaction.NotFoundError) = result
 

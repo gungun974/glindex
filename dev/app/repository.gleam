@@ -11,7 +11,7 @@ import glindex/transaction.{type TransactionError}
 
 pub type TrackStore
 
-pub fn track_store() -> Store(TrackStore, Track, Int) {
+pub fn track_store() -> Store(TrackStore, _, _) {
   Store(
     name: "tracks",
     to_value: fn(track: Track, action: glindex.Action) {
@@ -36,16 +36,22 @@ pub fn track_store() -> Store(TrackStore, Track, Int) {
       }
     },
     decoder: track_decoder(),
+    to_key: fn(key: Int) { glindex.int(key) },
     key_decoder: decode.int,
   )
 }
 
-pub fn track_artist_index() -> Index(TrackStore, Track, String) {
-  Index(name: "tracks_artist")
+pub fn track_artist_index() -> Index(TrackStore, _, _, _) {
+  Index(name: "tracks_artist", to_index_key: fn(key) { glindex.string(key) })
 }
 
-pub fn track_artist_album_index() -> Index(TrackStore, Track, decode.Dynamic) {
-  Index(name: "tracks_artist_and_album")
+pub fn track_artist_album_index() -> Index(TrackStore, _, _, _) {
+  Index(
+    name: "tracks_artist_and_album",
+    to_index_key: fn(key: #(String, String)) {
+      glindex.array([glindex.string(key.0), glindex.string(key.1)])
+    },
+  )
 }
 
 fn track_decoder() -> decode.Decoder(Track) {
@@ -69,7 +75,7 @@ pub fn get_track(
 
   case tx {
     Ok(tx) -> {
-      store.get(tx, store, glindex.Only(glindex.int(id)))
+      store.get(tx, store, glindex.Only(id))
     }
     Error(e) -> promise.resolve(Error(e))
   }
@@ -92,7 +98,7 @@ pub fn get_all_tracks_by_artist(
       use data_result <- promise.map(index.get_all(
         tx,
         index,
-        glindex.Only(glindex.string(artist)),
+        glindex.Only(artist),
         option.None,
       ))
 
@@ -119,11 +125,7 @@ pub fn add_track(
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- promise.map(store.get(
-            tx,
-            store,
-            glindex.Only(glindex.int(id)),
-          ))
+          use data_result <- promise.map(store.get(tx, store, glindex.Only(id)))
 
           use data <- result.try(data_result)
           Ok(data)
@@ -151,11 +153,7 @@ pub fn put_track(
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- promise.map(store.get(
-            tx,
-            store,
-            glindex.Only(glindex.int(id)),
-          ))
+          use data_result <- promise.map(store.get(tx, store, glindex.Only(id)))
 
           use data <- result.try(data_result)
           Ok(data)
@@ -211,7 +209,7 @@ pub fn delete_tracks_by_artist(
       index.open_cursor(
         tx,
         index,
-        glindex.Only(glindex.string(artist)),
+        glindex.Only(artist),
         cursor.Next,
         Nil,
         fn(_, cur) {
@@ -243,7 +241,7 @@ pub fn rename_artist(
       index.open_cursor(
         tx,
         index,
-        glindex.Only(glindex.string(old_name)),
+        glindex.Only(old_name),
         cursor.Next,
         Nil,
         fn(_, cur) {
@@ -291,7 +289,7 @@ pub fn get_tracks_from_prolific_artists(
             use count_result <- promise.map(index.count(
               tx,
               index,
-              glindex.Only(glindex.string(track.artist)),
+              glindex.Only(track.artist),
             ))
 
             case count_result {
@@ -321,18 +319,10 @@ pub fn delete_track(
 
   case tx {
     Ok(tx) -> {
-      use data_result <- promise.await(store.get(
-        tx,
-        store,
-        glindex.Only(glindex.int(id)),
-      ))
+      use data_result <- promise.await(store.get(tx, store, glindex.Only(id)))
       case data_result {
         Ok(track) -> {
-          use _ <- promise.map(store.delete(
-            tx,
-            store,
-            glindex.Only(glindex.int(id)),
-          ))
+          use _ <- promise.map(store.delete(tx, store, glindex.Only(id)))
 
           Ok(track)
         }

@@ -35,7 +35,7 @@ fn extract_store(store: TransactionStore(any, t, k)) -> glindex.Store(any, t, k)
 pub fn get(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(t, TransactionError)) {
   get_ffi(tx, store, query)
   |> promise.map(fn(result) {
@@ -56,7 +56,7 @@ pub fn get(
 fn get_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read all records matching `query` from `store` and decode each one.
@@ -66,7 +66,7 @@ fn get_ffi(
 pub fn get_all(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   count: option.Option(Int),
 ) -> Promise(Result(List(t), TransactionError)) {
   get_all_ffi(tx, store, query, count)
@@ -94,7 +94,7 @@ pub fn get_all(
 fn get_all_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   count: option.Option(Int),
 ) -> Promise(Result(List(dynamic.Dynamic), String))
 
@@ -105,7 +105,7 @@ fn get_all_ffi(
 pub fn get_key(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(k, TransactionError)) {
   get_key_ffi(tx, store, query)
   |> promise.map(fn(result) {
@@ -125,7 +125,7 @@ pub fn get_key(
 fn get_key_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read the primary keys of all records matching `query` in `store`.
@@ -135,7 +135,7 @@ fn get_key_ffi(
 pub fn get_all_keys(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   count: option.Option(Int),
 ) -> Promise(Result(List(k), TransactionError)) {
   get_all_keys_ffi(tx, store, query, count)
@@ -163,7 +163,7 @@ pub fn get_all_keys(
 fn get_all_keys_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   count: option.Option(Int),
 ) -> Promise(Result(List(dynamic.Dynamic), String))
 
@@ -172,7 +172,7 @@ fn get_all_keys_ffi(
 pub fn count(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(Int, TransactionError)) {
   count_ffi(tx, store, query)
   |> promise.map(fn(result) {
@@ -187,7 +187,7 @@ pub fn count(
 fn count_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(Int, String))
 
 /// Insert a new record into `store` and return its generated primary key.
@@ -330,7 +330,7 @@ fn put_with_out_of_line_key_ffi(
 pub fn delete(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(Nil, TransactionError)) {
   delete_ffi(tx, store, query)
   |> promise.map(fn(result) {
@@ -345,7 +345,7 @@ pub fn delete(
 fn delete_ffi(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
 ) -> Promise(Result(Nil, String))
 
 /// Delete every record in `store`.
@@ -382,7 +382,7 @@ fn clear_ffi(
 pub fn open_cursor(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   direction: CursorDirection,
   initial: state,
   handler: fn(state, Cursor(WithValue, rw, StoreCursor)) ->
@@ -405,7 +405,7 @@ pub fn open_cursor(
 fn open_cursor_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   direction: CursorDirection,
   initial: state,
   handler: fn(
@@ -424,7 +424,7 @@ fn open_cursor_ffi(
 pub fn open_key_cursor(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   direction: CursorDirection,
   initial: state,
   handler: fn(state, Cursor(WithoutValue, rw, StoreCursor)) ->
@@ -454,7 +454,7 @@ pub fn open_key_cursor(
 fn open_key_cursor_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
-  query: Query,
+  query: Query(k),
   direction: CursorDirection,
   initial: state,
   handler: fn(

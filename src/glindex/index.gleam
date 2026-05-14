@@ -27,7 +27,7 @@ fn map_error(name: String) -> TransactionError {
 
 @external(javascript, "./transaction_ffi.mjs", "extract_index")
 fn extract_index(
-  index: TransactionIndex(t, k),
+  index: TransactionIndex(t, k, i),
 ) -> #(decode.Decoder(t), decode.Decoder(k))
 
 /// Read the first record matching `query` via `index` and decode it.
@@ -36,8 +36,8 @@ fn extract_index(
 ///
 pub fn get(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
 ) -> Promise(Result(t, TransactionError)) {
   get_ffi(tx, index, query)
   |> promise.map(fn(result) {
@@ -56,8 +56,8 @@ pub fn get(
 @external(javascript, "./transaction_ffi.mjs", "index_get")
 fn get_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
 ) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read the primary key of the first record matching `query` via `index`.
@@ -66,8 +66,8 @@ fn get_ffi(
 ///
 pub fn get_key(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
 ) -> Promise(Result(k, TransactionError)) {
   get_key_ffi(tx, index, query)
   |> promise.map(fn(result) {
@@ -86,8 +86,8 @@ pub fn get_key(
 @external(javascript, "./transaction_ffi.mjs", "index_get_key")
 fn get_key_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
 ) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read the primary keys of all records matching `query` via `index`.
@@ -96,8 +96,8 @@ fn get_key_ffi(
 ///
 pub fn get_all_keys(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   count: option.Option(Int),
 ) -> Promise(Result(List(k), TransactionError)) {
   get_all_keys_ffi(tx, index, query, count)
@@ -124,8 +124,8 @@ pub fn get_all_keys(
 @external(javascript, "./transaction_ffi.mjs", "index_get_all_keys")
 fn get_all_keys_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   count: option.Option(Int),
 ) -> Promise(Result(List(dynamic.Dynamic), String))
 
@@ -133,8 +133,8 @@ fn get_all_keys_ffi(
 ///
 pub fn count(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
 ) -> Promise(Result(Int, TransactionError)) {
   count_ffi(tx, index, query)
   |> promise.map(fn(result) {
@@ -148,8 +148,8 @@ pub fn count(
 @external(javascript, "./transaction_ffi.mjs", "index_count")
 fn count_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
 ) -> Promise(Result(Int, String))
 
 /// Read all records matching `query` via `index` and decode each one.
@@ -158,8 +158,8 @@ fn count_ffi(
 ///
 pub fn get_all(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   count: option.Option(Int),
 ) -> Promise(Result(List(t), TransactionError)) {
   get_all_ffi(tx, index, query, count)
@@ -186,8 +186,8 @@ pub fn get_all(
 @external(javascript, "./transaction_ffi.mjs", "index_get_all")
 fn get_all_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   count: option.Option(Int),
 ) -> Promise(Result(List(dynamic.Dynamic), String))
 
@@ -198,8 +198,8 @@ fn get_all_ffi(
 ///
 pub fn open_cursor(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   direction: CursorDirection,
   initial: state,
   handler: fn(state, Cursor(WithValue, rw, IndexCursor)) ->
@@ -221,8 +221,8 @@ pub fn open_cursor(
 @external(javascript, "./transaction_ffi.mjs", "index_open_cursor")
 fn open_cursor_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   direction: CursorDirection,
   initial: state,
   handler: fn(
@@ -239,8 +239,8 @@ fn open_cursor_ffi(
 ///
 pub fn open_key_cursor(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   direction: CursorDirection,
   initial: state,
   handler: fn(state, Cursor(WithoutValue, rw, IndexCursor)) ->
@@ -269,8 +269,8 @@ pub fn open_key_cursor(
 @external(javascript, "./transaction_ffi.mjs", "index_open_key_cursor")
 fn open_key_cursor_ffi(
   tx: Transaction(rw, upgrade),
-  index: TransactionIndex(t, k),
-  query: Query,
+  index: TransactionIndex(t, k, i),
+  query: Query(i),
   direction: CursorDirection,
   initial: state,
   handler: fn(

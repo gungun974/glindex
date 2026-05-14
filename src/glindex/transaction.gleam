@@ -92,7 +92,7 @@ pub type TransactionStore(store_type, t, k)
 
 /// Handle to an index obtained via `transaction.index`.
 ///
-pub type TransactionIndex(t, k)
+pub type TransactionIndex(t, k, i)
 
 /// Errors returned by store and index operations.
 ///
@@ -165,16 +165,16 @@ fn store_ffi(
 ///
 pub fn index(
   store: TransactionStore(store_type, t, k),
-  name: Index(store_type, t, k2),
-) -> TransactionIndex(t, k2) {
+  name: Index(store_type, t, k, i),
+) -> TransactionIndex(t, k, i) {
   index_ffi(store, name)
 }
 
 @external(javascript, "./transaction_ffi.mjs", "index")
 fn index_ffi(
   store: TransactionStore(store_type, t, k),
-  name: Index(store_type, t, k2),
-) -> TransactionIndex(t, k2)
+  name: Index(store_type, t, k, i),
+) -> TransactionIndex(t, k, i)
 
 /// Set the durability hint for the transaction.
 ///

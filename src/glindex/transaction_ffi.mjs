@@ -25,8 +25,10 @@ import {
   Store$Store$name,
   Store$Store$to_value,
   Store$Store$decoder,
+  Store$Store$to_key,
   Store$Store$key_decoder,
   Index$Index$name,
+  Index$Index$to_index_key,
 } from "../glindex.mjs";
 
 import {
@@ -48,22 +50,22 @@ function directionToString(direction) {
   return "next";
 }
 
-function queryToIDBKeyRange(query) {
+function queryToIDBKeyRange(query, toKey) {
   if (Query$isAll(query)) return null;
-  if (Query$isOnly(query)) return Query$Only$0(query);
+  if (Query$isOnly(query)) return toKey(Query$Only$0(query));
   if (Query$isLowerBound(query))
     return IDBKeyRange.lowerBound(
-      Query$LowerBound$value(query),
+      toKey(Query$LowerBound$value(query)),
       Query$LowerBound$exclusive(query),
     );
   if (Query$isUpperBound(query))
     return IDBKeyRange.upperBound(
-      Query$UpperBound$value(query),
+      toKey(Query$UpperBound$value(query)),
       Query$UpperBound$exclusive(query),
     );
   return IDBKeyRange.bound(
-    Query$Bound$lower(query),
-    Query$Bound$upper(query),
+    toKey(Query$Bound$lower(query)),
+    toKey(Query$Bound$upper(query)),
     Query$Bound$exclusive_lower(query),
     Query$Bound$exclusive_upper(query),
   );
@@ -125,6 +127,7 @@ export function store(builder, store) {
   const name = Store$Store$name(store);
   const to_value = Store$Store$to_value(store);
   const decoder = Store$Store$decoder(store);
+  const to_key = Store$Store$to_key(store);
   const key_decoder = Store$Store$key_decoder(store);
   builder.stores.push(name);
   return [
@@ -133,6 +136,7 @@ export function store(builder, store) {
       name,
       to_value,
       decoder,
+      to_key,
       key_decoder,
     },
   ];
@@ -140,7 +144,8 @@ export function store(builder, store) {
 
 export function index(store, index) {
   const name = Index$Index$name(index);
-  return { store, name };
+  const to_key = Index$Index$to_index_key(index);
+  return { store, name, to_key };
 }
 
 export function extract_store(store) {
@@ -148,6 +153,7 @@ export function extract_store(store) {
     store.name,
     store.to_value,
     store.decoder,
+    store.to_key,
     store.key_decoder,
   );
 }
@@ -189,7 +195,7 @@ export function store_get(tx, store, query) {
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .get(queryToIDBKeyRange(query));
+        .get(queryToIDBKeyRange(query, store.to_key));
       request.onsuccess = () =>
         request.result === undefined
           ? resolve(Result$Error("NotFound"))
@@ -207,7 +213,7 @@ export function store_get_all(tx, store, query, count) {
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .getAll(queryToIDBKeyRange(query), optionToValue(count));
+        .getAll(queryToIDBKeyRange(query, store.to_key), optionToValue(count));
       request.onsuccess = () =>
         resolve(Result$Ok(gleamListFromArray(request.result)));
       request.onerror = () =>
@@ -223,7 +229,7 @@ export function store_get_key(tx, store, query) {
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .getKey(queryToIDBKeyRange(query));
+        .getKey(queryToIDBKeyRange(query, store.to_key));
       request.onsuccess = () =>
         request.result === undefined
           ? resolve(Result$Error("NotFound"))
@@ -241,7 +247,10 @@ export function store_get_all_keys(tx, store, query, count) {
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
+        .getAllKeys(
+          queryToIDBKeyRange(query, store.to_key),
+          optionToValue(count),
+        );
       request.onsuccess = () =>
         resolve(Result$Ok(gleamListFromArray(request.result)));
       request.onerror = () =>
@@ -257,7 +266,7 @@ export function store_count(tx, store, query) {
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .count(queryToIDBKeyRange(query));
+        .count(queryToIDBKeyRange(query, store.to_key));
       request.onsuccess = () => resolve(Result$Ok(request.result));
       request.onerror = () =>
         resolve(Result$Error(request.error?.name ?? "UnknownError"));
@@ -324,7 +333,7 @@ export function store_delete(tx, store, query) {
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .delete(queryToIDBKeyRange(query));
+        .delete(queryToIDBKeyRange(query, store.to_key));
       request.onsuccess = () => resolve(Result$Ok(undefined));
       request.onerror = () =>
         resolve(Result$Error(request.error?.name ?? "UnknownError"));
@@ -353,7 +362,7 @@ export function index_get(tx, index, query) {
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .get(queryToIDBKeyRange(query));
+        .get(queryToIDBKeyRange(query, index.to_key));
       request.onsuccess = () =>
         request.result === undefined
           ? resolve(Result$Error("NotFound"))
@@ -372,7 +381,7 @@ export function index_get_key(tx, index, query) {
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .getKey(queryToIDBKeyRange(query));
+        .getKey(queryToIDBKeyRange(query, index.to_key));
       request.onsuccess = () =>
         request.result === undefined
           ? resolve(Result$Error("NotFound"))
@@ -391,7 +400,10 @@ export function index_get_all_keys(tx, index, query, count) {
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
+        .getAllKeys(
+          queryToIDBKeyRange(query, index.to_key),
+          optionToValue(count),
+        );
       request.onsuccess = () =>
         resolve(Result$Ok(gleamListFromArray(request.result)));
       request.onerror = () =>
@@ -408,7 +420,7 @@ export function index_count(tx, index, query) {
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .count(queryToIDBKeyRange(query));
+        .count(queryToIDBKeyRange(query, index.to_key));
       request.onsuccess = () => resolve(Result$Ok(request.result));
       request.onerror = () =>
         resolve(Result$Error(request.error?.name ?? "UnknownError"));
@@ -424,7 +436,7 @@ export function index_get_all(tx, index, query, count) {
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .getAll(queryToIDBKeyRange(query), optionToValue(count));
+        .getAll(queryToIDBKeyRange(query, index.to_key), optionToValue(count));
       request.onsuccess = () =>
         resolve(Result$Ok(gleamListFromArray(request.result)));
       request.onerror = () =>
@@ -473,7 +485,10 @@ export function store_open_cursor(
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .openCursor(queryToIDBKeyRange(query), directionToString(direction));
+        .openCursor(
+          queryToIDBKeyRange(query, store.to_key),
+          directionToString(direction),
+        );
       runCursor(request, initial, handler, resolve);
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
@@ -494,7 +509,10 @@ export function index_open_cursor(
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .openCursor(queryToIDBKeyRange(query), directionToString(direction));
+        .openCursor(
+          queryToIDBKeyRange(query, index.to_key),
+          directionToString(direction),
+        );
       runCursor(request, initial, handler, resolve);
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
@@ -514,7 +532,10 @@ export function store_open_key_cursor(
     try {
       const request = tx.tx
         .objectStore(store.name)
-        .openKeyCursor(queryToIDBKeyRange(query), directionToString(direction));
+        .openKeyCursor(
+          queryToIDBKeyRange(query, store.to_key),
+          directionToString(direction),
+        );
       runCursor(request, initial, handler, resolve);
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
@@ -535,7 +556,10 @@ export function index_open_key_cursor(
       const request = tx.tx
         .objectStore(index.store.name)
         .index(index.name)
-        .openKeyCursor(queryToIDBKeyRange(query), directionToString(direction));
+        .openKeyCursor(
+          queryToIDBKeyRange(query, index.to_key),
+          directionToString(direction),
+        );
       runCursor(request, initial, handler, resolve);
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));

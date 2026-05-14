@@ -35,6 +35,7 @@ fn test_store() {
       use name <- decode.field("name", decode.string)
       decode.success(#(id, name))
     },
+    to_key: fn(key) { glindex.int(key) },
     key_decoder: decode.int,
   )
 }

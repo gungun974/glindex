@@ -625,6 +625,7 @@ pub fn object_store_names_test() -> Promise(Nil) {
               name: "store_a",
               to_value: fn(_, _) { glindex.null() },
               decoder: decode.dynamic,
+              to_key: fn(_) { glindex.null() },
               key_decoder: decode.dynamic,
             ),
           )
@@ -635,6 +636,7 @@ pub fn object_store_names_test() -> Promise(Nil) {
               name: "store_b",
               to_value: fn(_, _) { glindex.null() },
               decoder: decode.dynamic,
+              to_key: fn(_) { glindex.null() },
               key_decoder: decode.dynamic,
             ),
           )
@@ -699,6 +701,7 @@ pub fn index_names_test() -> Promise(Nil) {
               name: "my_store",
               to_value: fn(_, _) { glindex.null() },
               decoder: decode.dynamic,
+              to_key: fn(_) { glindex.null() },
               key_decoder: decode.dynamic,
             ),
           )
