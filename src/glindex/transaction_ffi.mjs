@@ -37,6 +37,8 @@ import {
   CursorDirection$isNextUnique,
   CursorDirection$isPrevUnique,
   is_continue,
+  is_continue_key,
+  continue_key_value,
   is_stop,
   is_advance,
   advance_steps,
@@ -480,6 +482,8 @@ function runCursor(
       state = newState;
       if (is_continue(cursorNext)) {
         cursor.cursor.continue();
+      } else if (is_continue_key(cursorNext)) {
+        cursor.cursor.continue(cursor.to_key(continue_key_value(cursorNext)));
       } else if (is_advance(cursorNext)) {
         cursor.cursor.advance(advance_steps(cursorNext));
       } else if (is_continue_primary_key(cursorNext)) {

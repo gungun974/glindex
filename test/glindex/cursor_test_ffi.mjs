@@ -66,6 +66,16 @@ export async function store_open_cursor_advance_test_assert() {
   return undefined;
 }
 
+export async function store_open_cursor_continue_key_test_assert() {
+  const db = await open_db("Hoi");
+  const count = await count_records(db, "my_store");
+  db.close();
+  if (count !== 3) {
+    throw new Error(`Expected 3 records untouched, got ${count}`);
+  }
+  return undefined;
+}
+
 export async function store_open_key_cursor_test_assert() {
   const db = await open_db("Hoi");
   const count = await count_records(db, "my_store");
@@ -82,6 +92,16 @@ export async function index_open_cursor_test_assert() {
   db.close();
   if (count !== 2) {
     throw new Error(`Expected 2 records, got ${count}`);
+  }
+  return undefined;
+}
+
+export async function index_open_cursor_continue_primary_key_test_assert() {
+  const db = await open_db("Hoi");
+  const count = await count_records(db, "my_store");
+  db.close();
+  if (count !== 3) {
+    throw new Error(`Expected 3 records untouched, got ${count}`);
   }
   return undefined;
 }

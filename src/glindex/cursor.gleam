@@ -55,12 +55,13 @@ pub type CursorDirection {
 
 /// Opaque instruction returned from a cursor handler to control iteration.
 ///
-/// Construct one with `continue`, `advance`, `stop`, or
+/// Construct one with `continue`, `advance`, `stop`, `continue_key`, or
 /// `continue_primary_key`.
 ///
 pub opaque type CursorNext(source, p, k) {
   Continue
   Advance(Int)
+  ContinueKey(key: k)
   ContinuePrimaryKey(key: k, primary_key: p)
   Stop
 }
@@ -81,6 +82,12 @@ pub fn advance(n: Int) -> CursorNext(source, p, k) {
 ///
 pub fn stop() -> CursorNext(source, p, k) {
   Stop
+}
+
+/// Jump to the first record whose key is greater than or equal to `key`.
+///
+pub fn continue_key(key: k) -> CursorNext(source, p, k) {
+  ContinueKey(key:)
 }
 
 /// Jump to the record with the given index key and primary key.
@@ -216,6 +223,20 @@ pub fn is_advance(next: CursorNext(source, p, k)) -> Bool {
 pub fn advance_steps(next: CursorNext(source, p, k)) -> Int {
   let assert Advance(n) = next
   n
+}
+
+@internal
+pub fn is_continue_key(next: CursorNext(source, p, k)) -> Bool {
+  case next {
+    ContinueKey(_) -> True
+    _ -> False
+  }
+}
+
+@internal
+pub fn continue_key_value(next: CursorNext(source, p, k)) -> k {
+  let assert ContinueKey(key) = next
+  key
 }
 
 @internal

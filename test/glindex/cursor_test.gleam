@@ -285,6 +285,68 @@ pub fn store_open_cursor_advance_test() -> Promise(Nil) {
 @external(javascript, "./cursor_test_ffi.mjs", "store_open_cursor_advance_test_assert")
 fn store_open_cursor_advance_test_assert() -> Promise(Nil)
 
+pub fn store_open_cursor_continue_key_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(_) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Bob")) })
+          |> promise.await(fn(_) { store.add(tx, my_store, #(3, "Charlie")) })
+          |> promise.await(fn(_) {
+            store.open_cursor(
+              tx,
+              my_store,
+              glindex.All,
+              cursor.Next,
+              0,
+              fn(count, _) {
+                let next = case count {
+                  0 -> cursor.continue_key(3)
+                  _ -> cursor.stop()
+                }
+                promise.resolve(#(count + 1, next))
+              },
+            )
+          })
+          |> promise.map(fn(result) {
+            let assert Ok(2) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
+      }
+    }
+  })
+  //! Assert
+  |> promise.await(fn(_) { store_open_cursor_continue_key_test_assert() })
+}
+
+@external(javascript, "./cursor_test_ffi.mjs", "store_open_cursor_continue_key_test_assert")
+fn store_open_cursor_continue_key_test_assert() -> Promise(Nil)
+
 pub fn store_open_key_cursor_test() -> Promise(Nil) {
   //! Arrange
   fake_indexeddb()
@@ -403,6 +465,79 @@ pub fn index_open_cursor_test() -> Promise(Nil) {
 
 @external(javascript, "./cursor_test_ffi.mjs", "index_open_cursor_test_assert")
 fn index_open_cursor_test_assert() -> Promise(Nil)
+
+pub fn index_open_cursor_continue_primary_key_test() -> Promise(Nil) {
+  //! Arrange
+  fake_indexeddb()
+
+  //! Act
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Bob")) })
+          |> promise.await(fn(_) { store.add(tx, my_store, #(3, "Charlie")) })
+          |> promise.await(fn(_) {
+            index.open_cursor(
+              tx,
+              name_idx,
+              glindex.All,
+              cursor.Next,
+              0,
+              fn(count, _) {
+                let next = case count {
+                  0 -> cursor.continue_primary_key("Charlie", 3)
+                  _ -> cursor.stop()
+                }
+                promise.resolve(#(count + 1, next))
+              },
+            )
+          })
+          |> promise.map(fn(result) {
+            let assert Ok(2) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
+      }
+    }
+  })
+  //! Assert
+  |> promise.await(fn(_) {
+    index_open_cursor_continue_primary_key_test_assert()
+  })
+}
+
+@external(javascript, "./cursor_test_ffi.mjs", "index_open_cursor_continue_primary_key_test_assert")
+fn index_open_cursor_continue_primary_key_test_assert() -> Promise(Nil)
 
 pub fn index_open_key_cursor_test() -> Promise(Nil) {
   //! Arrange
