@@ -1,5 +1,6 @@
 import gleam/dynamic
 import gleam/dynamic/decode
+import gleam/javascript/promise.{type Promise}
 import gleam/list
 import gleam/option
 import glindex.{type Query}
@@ -37,17 +38,17 @@ pub fn get(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex(t, k),
   query: Query,
-  next: fn(Result(t, TransactionError)) -> a,
-) -> a {
-  get_ffi(tx, index, query, fn(result) {
+) -> Promise(Result(t, TransactionError)) {
+  get_ffi(tx, index, query)
+  |> promise.map(fn(result) {
     case result {
       Ok(raw) ->
         case decode.run(raw, extract_index(index).0) {
-          Ok(value) -> next(Ok(value))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
+          Ok(value) -> Ok(value)
+          Error(errors) -> Error(UnableToDecode(errors))
         }
-      Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(map_error(name)))
+      Error("NotFound") -> Error(NotFoundError)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -57,8 +58,7 @@ fn get_ffi(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex(t, k),
   query: Query,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read the primary key of the first record matching `query` via `index`.
 ///
@@ -68,17 +68,17 @@ pub fn get_key(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex(t, k),
   query: Query,
-  next: fn(Result(k, TransactionError)) -> a,
-) -> a {
-  get_key_ffi(tx, index, query, fn(result) {
+) -> Promise(Result(k, TransactionError)) {
+  get_key_ffi(tx, index, query)
+  |> promise.map(fn(result) {
     case result {
       Ok(raw) ->
         case decode.run(raw, extract_index(index).1) {
-          Ok(value) -> next(Ok(value))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
+          Ok(value) -> Ok(value)
+          Error(errors) -> Error(UnableToDecode(errors))
         }
-      Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(map_error(name)))
+      Error("NotFound") -> Error(NotFoundError)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -88,8 +88,7 @@ fn get_key_ffi(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex(t, k),
   query: Query,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read the primary keys of all records matching `query` via `index`.
 ///
@@ -100,9 +99,9 @@ pub fn get_all_keys(
   index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(k), TransactionError)) -> a,
-) -> a {
-  get_all_keys_ffi(tx, index, query, count, fn(result) {
+) -> Promise(Result(List(k), TransactionError)) {
+  get_all_keys_ffi(tx, index, query, count)
+  |> promise.map(fn(result) {
     case result {
       Ok(raws) -> {
         let decoded =
@@ -113,11 +112,11 @@ pub fn get_all_keys(
             }
           })
         case decoded {
-          Ok(values) -> next(Ok(values))
-          Error(e) -> next(Error(e))
+          Ok(values) -> Ok(values)
+          Error(e) -> Error(e)
         }
       }
-      Error(name) -> next(Error(map_error(name)))
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -128,8 +127,7 @@ fn get_all_keys_ffi(
   index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
-) -> a
+) -> Promise(Result(List(dynamic.Dynamic), String))
 
 /// Count the records matching `query` via `index`.
 ///
@@ -137,12 +135,12 @@ pub fn count(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex(t, k),
   query: Query,
-  next: fn(Result(Int, TransactionError)) -> a,
-) -> a {
-  count_ffi(tx, index, query, fn(result) {
+) -> Promise(Result(Int, TransactionError)) {
+  count_ffi(tx, index, query)
+  |> promise.map(fn(result) {
     case result {
-      Ok(n) -> next(Ok(n))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(n) -> Ok(n)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -152,8 +150,7 @@ fn count_ffi(
   tx: Transaction(rw, upgrade),
   index: TransactionIndex(t, k),
   query: Query,
-  next: fn(Result(Int, String)) -> a,
-) -> a
+) -> Promise(Result(Int, String))
 
 /// Read all records matching `query` via `index` and decode each one.
 ///
@@ -164,9 +161,9 @@ pub fn get_all(
   index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(t), TransactionError)) -> a,
-) -> a {
-  get_all_ffi(tx, index, query, count, fn(result) {
+) -> Promise(Result(List(t), TransactionError)) {
+  get_all_ffi(tx, index, query, count)
+  |> promise.map(fn(result) {
     case result {
       Ok(raws) -> {
         let decoded =
@@ -177,11 +174,11 @@ pub fn get_all(
             }
           })
         case decoded {
-          Ok(values) -> next(Ok(values))
-          Error(e) -> next(Error(e))
+          Ok(values) -> Ok(values)
+          Error(e) -> Error(e)
         }
       }
-      Error(name) -> next(Error(map_error(name)))
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -192,8 +189,7 @@ fn get_all_ffi(
   index: TransactionIndex(t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
-) -> a
+) -> Promise(Result(List(dynamic.Dynamic), String))
 
 /// Open a full-value cursor over `index` and iterate with `handler`.
 ///
@@ -206,17 +202,18 @@ pub fn open_cursor(
   query: Query,
   direction: CursorDirection,
   initial: state,
-  handler: fn(
-    state,
-    Cursor(WithValue, rw, IndexCursor),
-    fn(state, CursorNext(IndexCursor)) -> Nil,
-  ) -> Nil,
-  next: fn(Result(state, TransactionError)) -> a,
-) -> a {
-  open_cursor_ffi(tx, index, query, direction, initial, handler, fn(result) {
+  handler: fn(state, Cursor(WithValue, rw, IndexCursor)) ->
+    Promise(#(state, CursorNext(IndexCursor))),
+) -> Promise(Result(state, TransactionError)) {
+  open_cursor_ffi(tx, index, query, direction, initial, fn(state, cursor, next) {
+    handler(state, cursor)
+    |> promise.map(fn(entry) { next(entry.0, entry.1) })
+    Nil
+  })
+  |> promise.map(fn(result) {
     case result {
-      Ok(state) -> next(Ok(state))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(state) -> Ok(state)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -233,8 +230,7 @@ fn open_cursor_ffi(
     Cursor(WithValue, rw, IndexCursor),
     fn(state, CursorNext(IndexCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, String)) -> a,
-) -> a
+) -> Promise(Result(state, String))
 
 /// Open a key-only cursor over `index` and iterate with `handler`.
 ///
@@ -247,17 +243,25 @@ pub fn open_key_cursor(
   query: Query,
   direction: CursorDirection,
   initial: state,
-  handler: fn(
-    state,
-    Cursor(WithoutValue, rw, IndexCursor),
-    fn(state, CursorNext(IndexCursor)) -> Nil,
-  ) -> Nil,
-  next: fn(Result(state, TransactionError)) -> a,
-) -> a {
-  open_key_cursor_ffi(tx, index, query, direction, initial, handler, fn(result) {
+  handler: fn(state, Cursor(WithoutValue, rw, IndexCursor)) ->
+    Promise(#(state, CursorNext(IndexCursor))),
+) -> Promise(Result(state, TransactionError)) {
+  open_key_cursor_ffi(
+    tx,
+    index,
+    query,
+    direction,
+    initial,
+    fn(state, cursor, next) {
+      handler(state, cursor)
+      |> promise.map(fn(entry) { next(entry.0, entry.1) })
+      Nil
+    },
+  )
+  |> promise.map(fn(result) {
     case result {
-      Ok(state) -> next(Ok(state))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(state) -> Ok(state)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -274,5 +278,4 @@ fn open_key_cursor_ffi(
     Cursor(WithoutValue, rw, IndexCursor),
     fn(state, CursorNext(IndexCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, String)) -> a,
-) -> a
+) -> Promise(Result(state, String))

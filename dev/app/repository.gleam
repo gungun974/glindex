@@ -1,5 +1,6 @@
 import app/entity.{type Track, Track}
 import gleam/dynamic/decode
+import gleam/javascript/promise
 import gleam/option
 import gleam/result
 import glindex.{type Database, type Index, type Store, Index, Store}
@@ -59,181 +60,168 @@ fn track_decoder() -> decode.Decoder(Track) {
 pub fn get_track(
   db: Database,
   id: Int,
-  next: fn(Result(Track, TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(Track, TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_only)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
-      next({
-        use data <- result.try(data_result)
-        Ok(data)
-      })
+      store.get(tx, store, glindex.Only(glindex.int(id)))
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn get_all_tracks_by_artist(
   db: Database,
   artist: String,
-  next: fn(Result(List(Track), TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(List(Track), TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_only)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
   let index = transaction.index(store, track_artist_index())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use data_result <- index.get_all(
+      use data_result <- promise.map(index.get_all(
         tx,
         index,
         glindex.Only(glindex.string(artist)),
         option.None,
-      )
-      next({
-        use data <- result.try(data_result)
-        Ok(data)
-      })
+      ))
+
+      use data <- result.try(data_result)
+      Ok(data)
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn add_track(
   db: Database,
   track: Track,
-  next: fn(Result(Track, TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(Track, TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_write)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use maybe_id <- store.add(tx, store, track)
+      use maybe_id <- promise.await(store.add(tx, store, track))
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
-          next({
-            use data <- result.try(data_result)
-            Ok(data)
-          })
+          use data_result <- promise.map(store.get(
+            tx,
+            store,
+            glindex.Only(glindex.int(id)),
+          ))
+
+          use data <- result.try(data_result)
+          Ok(data)
         }
-        Error(e) -> next(Error(e))
+        Error(e) -> promise.resolve(Error(e))
       }
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn put_track(
   db: Database,
   track: Track,
-  next: fn(Result(Track, TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(Track, TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_write)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use maybe_id <- store.put(tx, store, track)
+      use maybe_id <- promise.await(store.put(tx, store, track))
 
       case maybe_id {
         Ok(id) -> {
-          use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
-          next({
-            use data <- result.try(data_result)
-            Ok(data)
-          })
+          use data_result <- promise.map(store.get(
+            tx,
+            store,
+            glindex.Only(glindex.int(id)),
+          ))
+
+          use data <- result.try(data_result)
+          Ok(data)
         }
-        Error(e) -> next(Error(e))
+        Error(e) -> promise.resolve(Error(e))
       }
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn get_tracks_shorter_than(
   db: Database,
   max_duration: Int,
-  next: fn(Result(List(Track), TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(List(Track), TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_only)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use result <- store.open_cursor(
-        tx,
-        store,
-        glindex.All,
-        cursor.Next,
-        [],
-        fn(acc, cur, next) {
-          case cursor.cursor_value(cur, track_decoder()) {
-            Ok(track) if track.duration < max_duration -> {
-              next([track, ..acc], cursor.continue())
-            }
-            _ -> {
-              next(acc, cursor.continue())
-            }
+      store.open_cursor(tx, store, glindex.All, cursor.Next, [], fn(acc, cur) {
+        case cursor.cursor_value(cur, track_decoder()) {
+          Ok(track) if track.duration < max_duration -> {
+            promise.resolve(#([track, ..acc], cursor.continue()))
           }
-        },
-      )
-      next(result)
+          _ -> {
+            promise.resolve(#(acc, cursor.continue()))
+          }
+        }
+      })
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn delete_tracks_by_artist(
   db: Database,
   artist: String,
-  next: fn(Result(Nil, TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(Nil, TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_write)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
   let index = transaction.index(store, track_artist_index())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use result <- index.open_cursor(
+      index.open_cursor(
         tx,
         index,
         glindex.Only(glindex.string(artist)),
         cursor.Next,
         Nil,
-        fn(_, cur, next) {
-          use _ <- cursor.cursor_delete(cur)
-          next(Nil, cursor.continue())
+        fn(_, cur) {
+          use _ <- promise.map(cursor.cursor_delete(cur))
+
+          #(Nil, cursor.continue())
         },
       )
-      next(result)
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
@@ -241,28 +229,27 @@ pub fn rename_artist(
   db: Database,
   old_name: String,
   new_name: String,
-  next: fn(Result(Nil, TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(Nil, TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_write)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
   let index = transaction.index(store, track_artist_index())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use result <- index.open_cursor(
+      index.open_cursor(
         tx,
         index,
         glindex.Only(glindex.string(old_name)),
         cursor.Next,
         Nil,
-        fn(_, cur, next) {
+        fn(_, cur) {
           case cursor.cursor_value(cur, track_decoder()) {
             Ok(track) -> {
-              use _ <- cursor.cursor_update(
+              use _ <- promise.map(cursor.cursor_update(
                 cur,
                 glindex.object([
                   #("id", glindex.int(track.id)),
@@ -271,86 +258,87 @@ pub fn rename_artist(
                   #("artist", glindex.string(new_name)),
                   #("duration", glindex.int(track.duration)),
                 ]),
-              )
-              next(Nil, cursor.continue())
+              ))
+
+              #(Nil, cursor.continue())
             }
-            Error(_) -> next(Nil, cursor.stop())
+            Error(_) -> promise.resolve(#(Nil, cursor.stop()))
           }
         },
       )
-      next(result)
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn get_tracks_from_prolific_artists(
   db: Database,
   min_track_count: Int,
-  next: fn(Result(List(Track), TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(List(Track), TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_only)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
   let index = transaction.index(store, track_artist_index())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use result <- store.open_cursor(
-        tx,
-        store,
-        glindex.All,
-        cursor.Next,
-        [],
-        fn(acc, cur, next) {
-          case cursor.cursor_value(cur, track_decoder()) {
-            Ok(track) -> {
-              use count_result <- index.count(
-                tx,
-                index,
-                glindex.Only(glindex.string(track.artist)),
-              )
-              case count_result {
-                Ok(count) if count >= min_track_count ->
-                  next([track, ..acc], cursor.continue())
-                _ -> next(acc, cursor.continue())
+      store.open_cursor(tx, store, glindex.All, cursor.Next, [], fn(acc, cur) {
+        case cursor.cursor_value(cur, track_decoder()) {
+          Ok(track) -> {
+            use count_result <- promise.map(index.count(
+              tx,
+              index,
+              glindex.Only(glindex.string(track.artist)),
+            ))
+
+            case count_result {
+              Ok(count) if count >= min_track_count -> {
+                #([track, ..acc], cursor.continue())
               }
+              _ -> #(acc, cursor.continue())
             }
-            Error(_) -> next(acc, cursor.stop())
           }
-        },
-      )
-      next(result)
+          Error(_) -> promise.resolve(#(acc, cursor.stop()))
+        }
+      })
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }
 
 pub fn delete_track(
   db: Database,
   id: Int,
-  next: fn(Result(Track, TransactionError)) -> a,
-) -> a {
+) -> promise.Promise(Result(Track, TransactionError)) {
   let tx = transaction.prepare(db, transaction.read_write)
 
   let #(tx, store) = transaction.store(tx, track_store())
 
-  use tx <- transaction.begin(tx)
+  use tx <- promise.await(transaction.begin(tx))
 
   case tx {
     Ok(tx) -> {
-      use data_result <- store.get(tx, store, glindex.Only(glindex.int(id)))
+      use data_result <- promise.await(store.get(
+        tx,
+        store,
+        glindex.Only(glindex.int(id)),
+      ))
       case data_result {
         Ok(track) -> {
-          use _ <- store.delete(tx, store, glindex.Only(glindex.int(id)))
-          next(Ok(track))
+          use _ <- promise.map(store.delete(
+            tx,
+            store,
+            glindex.Only(glindex.int(id)),
+          ))
+
+          Ok(track)
         }
-        Error(e) -> next(Error(e))
+        Error(e) -> promise.resolve(Error(e))
       }
     }
-    Error(e) -> next(Error(e))
+    Error(e) -> promise.resolve(Error(e))
   }
 }

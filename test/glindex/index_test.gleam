@@ -47,61 +47,49 @@ pub fn index_get_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-
-                use result <- index.get(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Alice")),
-                )
-
-                let assert Ok(#(1, "Alice")) = result
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) {
+            index.get(tx, name_idx, glindex.Only(glindex.string("Alice")))
           })
-        }
+          |> promise.map(fn(result) {
+            let assert Ok(#(1, "Alice")) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { index_get_test_assert() })
@@ -115,61 +103,49 @@ pub fn index_get_key_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-
-                use result <- index.get_key(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Alice")),
-                )
-
-                let assert Ok(1) = result
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) {
+            index.get_key(tx, name_idx, glindex.Only(glindex.string("Alice")))
           })
-        }
+          |> promise.map(fn(result) {
+            let assert Ok(1) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { index_get_key_test_assert() })
@@ -183,66 +159,57 @@ pub fn index_get_all_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-
-                use _ <- store.add(tx, my_store, #(2, "Alice"))
-
-                use result <- index.get_all(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Alice")),
-                  option.None,
-                )
-
-                let assert Ok(ids) = result
-
-                let assert 2 = list.length(ids)
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Alice")) })
+          |> promise.await(fn(_) {
+            index.get_all(
+              tx,
+              name_idx,
+              glindex.Only(glindex.string("Alice")),
+              option.None,
+            )
           })
-        }
+          |> promise.map(fn(result) {
+            let assert Ok(ids) = result
+
+            let assert 2 = list.length(ids)
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { index_get_all_test_assert() })
@@ -256,63 +223,55 @@ pub fn index_get_all_keys_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-                use _ <- store.add(tx, my_store, #(2, "Alice"))
-
-                use result <- index.get_all_keys(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Alice")),
-                  option.None,
-                )
-
-                let assert Ok([1, 2]) = result
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Alice")) })
+          |> promise.await(fn(_) {
+            index.get_all_keys(
+              tx,
+              name_idx,
+              glindex.Only(glindex.string("Alice")),
+              option.None,
+            )
           })
-        }
+          |> promise.map(fn(result) {
+            let assert Ok([1, 2]) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { index_get_all_keys_test_assert() })
@@ -326,62 +285,49 @@ pub fn index_count_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-                use _ <- store.add(tx, my_store, #(2, "Alice"))
-
-                use result <- index.count(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Alice")),
-                )
-
-                let assert Ok(2) = result
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(2, "Alice")) })
+          |> promise.await(fn(_) {
+            index.count(tx, name_idx, glindex.Only(glindex.string("Alice")))
           })
-        }
+          |> promise.map(fn(result) {
+            let assert Ok(2) = result
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { index_count_test_assert() })
@@ -395,60 +341,48 @@ pub fn index_get_not_found_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_only)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use result <- index.get(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Nobody")),
-                )
-
-                let assert Error(transaction.NotFoundError) = result
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
-          })
-        }
-      }
-    })
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
   })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_only)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          index.get(tx, name_idx, glindex.Only(glindex.string("Nobody")))
+          |> promise.map(fn(result) {
+            let assert Error(transaction.NotFoundError) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
+      }
+    }
+  })
+  |> promise.map(fn(_) { Nil })
 }
 
 pub fn index_get_key_not_found_test() -> Promise(Nil) {
@@ -456,58 +390,46 @@ pub fn index_get_key_not_found_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(s) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      let idx = upgrade.index(s, "name_idx")
-      let assert Ok(_) =
-        upgrade.create_index(
-          tx,
-          idx,
-          upgrade.KeyPath("name"),
-          upgrade.index_options(),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_only)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          let name_idx = transaction.index(my_store, test_index())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use result <- index.get_key(
-                  tx,
-                  name_idx,
-                  glindex.Only(glindex.string("Nobody")),
-                )
-
-                let assert Error(transaction.NotFoundError) = result
-
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
-          })
-        }
-      }
-    })
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(s) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    let idx = upgrade.index(s, "name_idx")
+    let assert Ok(_) =
+      upgrade.create_index(
+        tx,
+        idx,
+        upgrade.KeyPath("name"),
+        upgrade.index_options(),
+      )
+    Nil
   })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_only)
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        let name_idx = transaction.index(my_store, test_index())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          index.get_key(tx, name_idx, glindex.Only(glindex.string("Nobody")))
+          |> promise.map(fn(result) {
+            let assert Error(transaction.NotFoundError) = result
+
+            Ok(Nil)
+          })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
+      }
+    }
+  })
+  |> promise.map(fn(_) { Nil })
 }

@@ -44,46 +44,35 @@ pub fn abort_transaction_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(_) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(_) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
 
-                transaction.abort(tx)
+        let #(builder, my_store) = transaction.store(builder, test_store())
 
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
-          })
-        }
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.map(fn(_) { Ok(transaction.abort(tx)) })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { abort_transaction_test_assert() })
@@ -97,46 +86,36 @@ pub fn with_durability_relaxed_test() -> Promise(Nil) {
   fake_indexeddb()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(_) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let builder =
-            transaction.with_durability(builder, transaction.DurabilityRelaxed)
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(_) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let builder =
+          transaction.with_durability(builder, transaction.DurabilityRelaxed)
+        let #(builder, my_store) = transaction.store(builder, test_store())
 
-                database.close(db)
-
-                resolve(Nil)
-              }
-            }
-          })
-        }
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.map(fn(_) { Ok(Nil) })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) { with_durability_relaxed_test_assert() })
@@ -151,47 +130,41 @@ pub fn on_complete_test() -> Promise(Nil) {
   let #(mark, was_called) = make_tracker()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(_) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let builder =
-            transaction.on_complete(builder, fn() {
-              mark()
-              database.close(db)
-              resolve(Nil)
-            })
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-                Nil
-              }
-            }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(_) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    let #(wait, end) = promise.start()
+
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let builder =
+          transaction.on_complete(builder, fn() {
+            mark()
+            end(Nil)
           })
-        }
+        let #(builder, my_store) = transaction.store(builder, test_store())
+
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+        })
+        |> promise.tap(fn(_) { database.close(db) })
+        |> promise.await(fn(_) { wait })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) {
@@ -209,48 +182,35 @@ pub fn on_error_test() -> Promise(Nil) {
   let #(mark, was_called) = make_tracker()
 
   //! Act
-  promise.new(fn(resolve) {
-    database.new("Hoi", 1)
-    |> database.add_version(1, fn(tx) {
-      let assert Ok(_) =
-        upgrade.create_store(
-          tx,
-          "my_store",
-          upgrade.StoreOptions(
-            key_path: upgrade.KeyPath("id"),
-            auto_increment: False,
-          ),
-        )
-      Nil
-    })
-    |> database.open(fn(maybe_db) {
-      case maybe_db {
-        Error(_) -> resolve(Nil)
-        Ok(db) -> {
-          let builder = transaction.prepare(db, transaction.read_write)
-          let builder =
-            transaction.on_error(builder, fn(_error_name) {
-              mark()
-              database.close(db)
-              resolve(Nil)
-            })
-          let #(builder, my_store) = transaction.store(builder, test_store())
-          transaction.begin(builder, fn(maybe_tx) {
-            case maybe_tx {
-              Error(_) -> {
-                database.close(db)
-                resolve(Nil)
-              }
-              Ok(tx) -> {
-                use _ <- store.add(tx, my_store, #(1, "Alice"))
-                use _ <- store.add(tx, my_store, #(1, "Duplicate"))
-                Nil
-              }
-            }
-          })
-        }
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let assert Ok(_) =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let builder = transaction.on_error(builder, fn(_error_name) { mark() })
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(1, "Duplicate")) })
+          |> promise.map(fn(_) { Ok(Nil) })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
       }
-    })
+    }
   })
   //! Assert
   |> promise.await(fn(_) {
@@ -267,47 +227,40 @@ pub fn on_abort_manual_test() -> Promise(Nil) {
   fake_indexeddb()
   let #(mark, was_called) = make_tracker()
   let received_error =
-    promise.new(fn(resolve) {
-      database.new("Hoi", 1)
-      |> database.add_version(1, fn(tx) {
-        let _ =
-          upgrade.create_store(
-            tx,
-            "my_store",
-            upgrade.StoreOptions(
-              key_path: upgrade.KeyPath("id"),
-              auto_increment: False,
-            ),
-          )
-        Nil
-      })
-      |> database.open(fn(maybe_db) {
-        case maybe_db {
-          Error(_) -> resolve(None)
-          Ok(db) -> {
-            let builder = transaction.prepare(db, transaction.read_write)
-            let builder =
-              transaction.on_abort(builder, fn(err) {
-                mark()
-                database.close(db)
-                resolve(err)
-              })
-            let #(builder, _my_store) = transaction.store(builder, test_store())
-            transaction.begin(builder, fn(maybe_tx) {
-              case maybe_tx {
-                Error(_) -> {
-                  database.close(db)
-                  resolve(None)
-                }
-                Ok(tx) -> {
-                  transaction.abort(tx)
-                  Nil
-                }
-              }
+    database.new("Hoi", 1)
+    |> database.add_version(1, fn(tx) {
+      let _ =
+        upgrade.create_store(
+          tx,
+          "my_store",
+          upgrade.StoreOptions(
+            key_path: upgrade.KeyPath("id"),
+            auto_increment: False,
+          ),
+        )
+      Nil
+    })
+    |> database.open()
+    |> promise.await(fn(maybe_db) {
+      let #(wait, end) = promise.start()
+
+      case maybe_db {
+        Error(_) -> panic
+        Ok(db) -> {
+          let builder = transaction.prepare(db, transaction.read_write)
+          let builder =
+            transaction.on_abort(builder, fn(err) {
+              mark()
+              end(err)
             })
-          }
+          let #(builder, _my_store) = transaction.store(builder, test_store())
+          promise.map_try(transaction.begin(builder), fn(tx) {
+            Ok(transaction.abort(tx))
+          })
+          |> promise.tap(fn(_) { database.close(db) })
+          |> promise.await(fn(_) { wait })
         }
-      })
+      }
     })
 
   //! Assert
@@ -323,53 +276,44 @@ pub fn on_abort_error_test() -> Promise(Nil) {
   //! Arrange
   fake_indexeddb()
   let #(mark, was_called) = make_tracker()
-  let received_error =
-    promise.new(fn(resolve) {
-      database.new("Hoi", 1)
-      |> database.add_version(1, fn(tx) {
-        let _ =
-          upgrade.create_store(
-            tx,
-            "my_store",
-            upgrade.StoreOptions(
-              key_path: upgrade.KeyPath("id"),
-              auto_increment: False,
-            ),
-          )
-        Nil
-      })
-      |> database.open(fn(maybe_db) {
-        case maybe_db {
-          Error(_) -> resolve(None)
-          Ok(db) -> {
-            let builder = transaction.prepare(db, transaction.read_write)
-            let builder =
-              transaction.on_abort(builder, fn(err) {
-                mark()
-                database.close(db)
-                resolve(err)
-              })
-            let #(builder, my_store) = transaction.store(builder, test_store())
-            transaction.begin(builder, fn(maybe_tx) {
-              case maybe_tx {
-                Error(_) -> {
-                  database.close(db)
-                  resolve(None)
-                }
-                Ok(tx) -> {
-                  use _ <- store.add(tx, my_store, #(1, "Alice"))
-                  use _ <- store.add(tx, my_store, #(1, "Duplicate"))
-                  Nil
-                }
-              }
-            })
-          }
-        }
-      })
-    })
+  database.new("Hoi", 1)
+  |> database.add_version(1, fn(tx) {
+    let _ =
+      upgrade.create_store(
+        tx,
+        "my_store",
+        upgrade.StoreOptions(
+          key_path: upgrade.KeyPath("id"),
+          auto_increment: False,
+        ),
+      )
+    Nil
+  })
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
+    let #(wait, end) = promise.start()
 
+    case maybe_db {
+      Error(_) -> panic
+      Ok(db) -> {
+        let builder = transaction.prepare(db, transaction.read_write)
+        let builder =
+          transaction.on_abort(builder, fn(err) {
+            mark()
+            end(err)
+          })
+        let #(builder, my_store) = transaction.store(builder, test_store())
+        promise.try_await(transaction.begin(builder), fn(tx) {
+          store.add(tx, my_store, #(1, "Alice"))
+          |> promise.await(fn(_) { store.add(tx, my_store, #(1, "Duplicate")) })
+          |> promise.map(fn(_) { Ok(Nil) })
+        })
+        |> promise.tap(fn(_) { database.close(db) })
+        |> promise.await(fn(_) { wait })
+      }
+    }
+  })
   //! Assert
-  received_error
   |> promise.map(fn(err) {
     let assert True = was_called()
     let assert Some(_) = err

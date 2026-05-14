@@ -54,6 +54,7 @@
 
 import gleam/bool
 import gleam/int
+import gleam/javascript/promise.{type Promise}
 import gleam/list
 import gleam/option.{type Option}
 import glindex.{type Database}
@@ -190,19 +191,14 @@ pub fn on_close(
 ///
 pub fn open(
   builder: DatabaseBuilder,
-  next: fn(Result(Database, DatabaseError)) -> a,
-) {
+) -> Promise(Result(Database, DatabaseError)) {
   use <- bool.lazy_guard(builder.version <= 0, fn() {
-    next(Error(VersionError))
-    Nil
+    promise.resolve(Error(VersionError))
   })
 
   use <- bool.lazy_guard(
     list.any(builder.migrations, fn(migration) { migration.version <= 0 }),
-    fn() {
-      next(Error(VersionError))
-      Nil
-    },
+    fn() { promise.resolve(Error(VersionError)) },
   )
 
   let migrations =
@@ -212,10 +208,7 @@ pub fn open(
   use <- bool.lazy_guard(
     list.window_by_2(migrations)
       |> list.any(fn(pair) { pair.0.version == pair.1.version }),
-    fn() {
-      next(Error(VersionError))
-      Nil
-    },
+    fn() { promise.resolve(Error(VersionError)) },
   )
 
   open_database(
@@ -238,15 +231,15 @@ pub fn open(
     builder.on_blocked,
     builder.on_blocking,
     builder.on_close,
-    fn(result) {
-      case result {
-        Ok(db) -> next(Ok(db))
-        Error("BlockedError") -> next(Error(Blocked))
-        Error("VersionError") -> next(Error(VersionError))
-        Error(name) -> next(Error(UnknownError(name)))
-      }
-    },
   )
+  |> promise.map(fn(result) {
+    case result {
+      Ok(db) -> Ok(db)
+      Error("BlockedError") -> Error(Blocked)
+      Error("VersionError") -> Error(VersionError)
+      Error(name) -> Error(UnknownError(name))
+    }
+  })
 }
 
 @external(javascript, "./database_ffi.mjs", "open_database")
@@ -260,8 +253,7 @@ fn open_database(
   on_blocked: Option(fn(Int, Int) -> Nil),
   on_blocking: Option(fn(Int, Int) -> Nil),
   on_terminated: Option(fn() -> Nil),
-  next: fn(Result(Database, String)) -> a,
-) -> Nil
+) -> Promise(Result(Database, String))
 
 /// Close the database connection.
 ///
@@ -284,40 +276,38 @@ pub type DatabaseInfo {
 
 /// List all IndexedDB databases available on the current origin.
 ///
-pub fn databases(
-  next: fn(Result(List(DatabaseInfo), DatabaseError)) -> a,
-) -> a {
-  databases_ffi(fn(result) {
+pub fn databases() -> Promise(Result(List(DatabaseInfo), DatabaseError)) {
+  databases_ffi()
+  |> promise.map(fn(result) {
     case result {
       Ok(infos) ->
-        next(
-          Ok(
-            list.map(infos, fn(info) {
-              DatabaseInfo(name: info.0, version: info.1)
-            }),
-          ),
+        Ok(
+          list.map(infos, fn(info) {
+            DatabaseInfo(name: info.0, version: info.1)
+          }),
         )
-      Error(e) -> next(Error(UnknownError(e)))
+      Error(e) -> Error(UnknownError(e))
     }
   })
 }
 
 @external(javascript, "./database_ffi.mjs", "databases")
-fn databases_ffi(next: fn(Result(List(#(String, Int)), String)) -> a) -> a
+fn databases_ffi() -> Promise(Result(List(#(String, Int)), String))
 
 /// Delete the named IndexedDB database entirely.
 ///
 /// Returns `Error(Blocked)` if an existing connection is preventing deletion.
 ///
-pub fn delete(name: String, next: fn(Result(Nil, DatabaseError)) -> a) -> a {
-  delete_ffi(name, fn(result) {
+pub fn delete(name: String) -> Promise(Result(Nil, DatabaseError)) {
+  delete_ffi(name)
+  |> promise.map(fn(result) {
     case result {
-      Ok(_) -> next(Ok(Nil))
-      Error("BlockedError") -> next(Error(Blocked))
-      Error(e) -> next(Error(UnknownError(e)))
+      Ok(_) -> Ok(Nil)
+      Error("BlockedError") -> Error(Blocked)
+      Error(e) -> Error(UnknownError(e))
     }
   })
 }
 
 @external(javascript, "./database_ffi.mjs", "delete_database")
-fn delete_ffi(name: String, next: fn(Result(Nil, String)) -> a) -> a
+fn delete_ffi(name: String) -> Promise(Result(Nil, String))

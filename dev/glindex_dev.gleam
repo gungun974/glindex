@@ -1,5 +1,6 @@
 import app/entity.{Track}
 import app/repository
+import gleam/javascript/promise
 import glindex/database
 import glindex/upgrade
 
@@ -44,11 +45,11 @@ pub fn main() -> Nil {
       )
     Nil
   })
-  |> database.open(fn(maybe_db) {
+  |> database.open()
+  |> promise.await(fn(maybe_db) {
     case maybe_db {
-      Error(_) -> Nil
       Ok(db) -> {
-        use _ <- repository.add_track(
+        use _ <- promise.await(repository.add_track(
           db,
           Track(
             id: 0,
@@ -57,8 +58,8 @@ pub fn main() -> Nil {
             artist: "Queen",
             duration: 354,
           ),
-        )
-        use _ <- repository.add_track(
+        ))
+        use _ <- promise.await(repository.add_track(
           db,
           Track(
             id: 0,
@@ -67,8 +68,8 @@ pub fn main() -> Nil {
             artist: "Queen",
             duration: 122,
           ),
-        )
-        use _ <- repository.add_track(
+        ))
+        use _ <- promise.await(repository.add_track(
           db,
           Track(
             id: 0,
@@ -77,19 +78,26 @@ pub fn main() -> Nil {
             artist: "Led Zeppelin",
             duration: 482,
           ),
-        )
+        ))
 
-        use track <- repository.get_track(db, 1)
+        use track <- promise.await(repository.get_track(db, 1))
         let _ = echo track
 
-        use by_artist <- repository.get_all_tracks_by_artist(db, "Queen")
+        use by_artist <- promise.await(repository.get_all_tracks_by_artist(
+          db,
+          "Queen",
+        ))
         let _ = echo by_artist
 
-        use short <- repository.get_tracks_shorter_than(db, 200)
+        use short <- promise.await(repository.get_tracks_shorter_than(db, 200))
         let _ = echo short
 
         database.close(db)
+
+        promise.resolve(Nil)
       }
+      Error(_) -> promise.resolve(Nil)
     }
   })
+  Nil
 }

@@ -156,7 +156,7 @@ export function extract_index(index) {
   return [index.store.decoder, index.store.key_decoder];
 }
 
-export function begin(builder, next) {
+export function begin(builder) {
   try {
     const db = builder.db;
     const tx = db.transaction(builder.stores, builder.mode, {
@@ -168,9 +168,9 @@ export function begin(builder, next) {
     if (builder.onabort)
       tx.onabort = () =>
         builder.onabort(tx.error ? Option$Some(tx.error.name) : Option$None());
-    return next(Result$Ok({ db, tx }));
+    return Result$Ok({ db, tx });
   } catch (e) {
-    return next(Result$Error(e.name ?? "UnknownError"));
+    return Result$Error(e.name ?? "UnknownError");
   }
 }
 
@@ -184,161 +184,263 @@ export function commit(tx) {
   return undefined;
 }
 
-export function store_get(tx, store, query, next) {
-  const request = tx.tx.objectStore(store.name).get(queryToIDBKeyRange(query));
-  request.onsuccess = () =>
-    request.result === undefined
-      ? next(Result$Error("NotFound"))
-      : next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_get(tx, store, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .get(queryToIDBKeyRange(query));
+      request.onsuccess = () =>
+        request.result === undefined
+          ? resolve(Result$Error("NotFound"))
+          : resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_get_all(tx, store, query, count, next) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .getAll(queryToIDBKeyRange(query), optionToValue(count));
-  request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_get_all(tx, store, query, count) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .getAll(queryToIDBKeyRange(query), optionToValue(count));
+      request.onsuccess = () =>
+        resolve(Result$Ok(gleamListFromArray(request.result)));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_get_key(tx, store, query, next) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .getKey(queryToIDBKeyRange(query));
-  request.onsuccess = () =>
-    request.result === undefined
-      ? next(Result$Error("NotFound"))
-      : next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_get_key(tx, store, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .getKey(queryToIDBKeyRange(query));
+      request.onsuccess = () =>
+        request.result === undefined
+          ? resolve(Result$Error("NotFound"))
+          : resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_get_all_keys(tx, store, query, count, next) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
-  request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_get_all_keys(tx, store, query, count) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
+      request.onsuccess = () =>
+        resolve(Result$Ok(gleamListFromArray(request.result)));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_count(tx, store, query, next) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .count(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_count(tx, store, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .count(queryToIDBKeyRange(query));
+      request.onsuccess = () => resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_add(tx, store, value, next) {
-  const request = tx.tx.objectStore(store.name).add(value);
-  request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_add(tx, store, value) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx.objectStore(store.name).add(value);
+      request.onsuccess = () => resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_put(tx, store, value, next) {
-  const request = tx.tx.objectStore(store.name).put(value);
-  request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_put(tx, store, value) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx.objectStore(store.name).put(value);
+      request.onsuccess = () => resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_add_with_out_of_line_key(tx, store, value, key, next) {
-  const request = tx.tx.objectStore(store.name).add(value, key);
-  request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_add_with_out_of_line_key(tx, store, value, key) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx.objectStore(store.name).add(value, key);
+      request.onsuccess = () => resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_put_with_out_of_line_key(tx, store, value, key, next) {
-  const request = tx.tx.objectStore(store.name).put(value, key);
-  request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_put_with_out_of_line_key(tx, store, value, key) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx.objectStore(store.name).put(value, key);
+      request.onsuccess = () => resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_delete(tx, store, query, next) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .delete(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(undefined));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_delete(tx, store, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .delete(queryToIDBKeyRange(query));
+      request.onsuccess = () => resolve(Result$Ok(undefined));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function store_clear(tx, store, next) {
-  const request = tx.tx.objectStore(store.name).clear();
-  request.onsuccess = () => next(Result$Ok(undefined));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function store_clear(tx, store) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx.objectStore(store.name).clear();
+      request.onsuccess = () => resolve(Result$Ok(undefined));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function index_get(tx, index, query, next) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .get(queryToIDBKeyRange(query));
-  request.onsuccess = () =>
-    request.result === undefined
-      ? next(Result$Error("NotFound"))
-      : next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function index_get(tx, index, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .get(queryToIDBKeyRange(query));
+      request.onsuccess = () =>
+        request.result === undefined
+          ? resolve(Result$Error("NotFound"))
+          : resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function index_get_key(tx, index, query, next) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .getKey(queryToIDBKeyRange(query));
-  request.onsuccess = () =>
-    request.result === undefined
-      ? next(Result$Error("NotFound"))
-      : next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function index_get_key(tx, index, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .getKey(queryToIDBKeyRange(query));
+      request.onsuccess = () =>
+        request.result === undefined
+          ? resolve(Result$Error("NotFound"))
+          : resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function index_get_all_keys(tx, index, query, count, next) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
-  request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function index_get_all_keys(tx, index, query, count) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .getAllKeys(queryToIDBKeyRange(query), optionToValue(count));
+      request.onsuccess = () =>
+        resolve(Result$Ok(gleamListFromArray(request.result)));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function index_count(tx, index, query, next) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .count(queryToIDBKeyRange(query));
-  request.onsuccess = () => next(Result$Ok(request.result));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function index_count(tx, index, query) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .count(queryToIDBKeyRange(query));
+      request.onsuccess = () => resolve(Result$Ok(request.result));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function index_get_all(tx, index, query, count, next) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .getAll(queryToIDBKeyRange(query), optionToValue(count));
-  request.onsuccess = () => next(Result$Ok(gleamListFromArray(request.result)));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+export function index_get_all(tx, index, query, count) {
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .getAll(queryToIDBKeyRange(query), optionToValue(count));
+      request.onsuccess = () =>
+        resolve(Result$Ok(gleamListFromArray(request.result)));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-function runCursor(request, initial, handler, next) {
+function runCursor(request, initial, handler, resolve) {
   let state = initial;
   request.onsuccess = () => {
     const cursor = request.result;
     if (!cursor) {
-      next(Result$Ok(state));
+      resolve(Result$Ok(state));
       return;
     }
     handler(state, cursor, (newState, cursorNext) => {
@@ -351,12 +453,12 @@ function runCursor(request, initial, handler, next) {
         const values = continue_primary_key_values(cursorNext);
         cursor.continuePrimaryKey(values[0], values[1]);
       } else if (is_stop(cursorNext)) {
-        next(Result$Ok(newState));
+        resolve(Result$Ok(newState));
       }
     });
   };
   request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
+    resolve(Result$Error(request.error?.name ?? "UnknownError"));
 }
 
 export function store_open_cursor(
@@ -366,12 +468,17 @@ export function store_open_cursor(
   direction,
   initial,
   handler,
-  next,
 ) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .openCursor(queryToIDBKeyRange(query), directionToString(direction));
-  runCursor(request, initial, handler, next);
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .openCursor(queryToIDBKeyRange(query), directionToString(direction));
+      runCursor(request, initial, handler, resolve);
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
 export function index_open_cursor(
@@ -381,13 +488,18 @@ export function index_open_cursor(
   direction,
   initial,
   handler,
-  next,
 ) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .openCursor(queryToIDBKeyRange(query), directionToString(direction));
-  runCursor(request, initial, handler, next);
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .openCursor(queryToIDBKeyRange(query), directionToString(direction));
+      runCursor(request, initial, handler, resolve);
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
 export function store_open_key_cursor(
@@ -397,12 +509,17 @@ export function store_open_key_cursor(
   direction,
   initial,
   handler,
-  next,
 ) {
-  const request = tx.tx
-    .objectStore(store.name)
-    .openKeyCursor(queryToIDBKeyRange(query), directionToString(direction));
-  runCursor(request, initial, handler, next);
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(store.name)
+        .openKeyCursor(queryToIDBKeyRange(query), directionToString(direction));
+      runCursor(request, initial, handler, resolve);
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
 export function index_open_key_cursor(
@@ -412,11 +529,16 @@ export function index_open_key_cursor(
   direction,
   initial,
   handler,
-  next,
 ) {
-  const request = tx.tx
-    .objectStore(index.store.name)
-    .index(index.name)
-    .openKeyCursor(queryToIDBKeyRange(query), directionToString(direction));
-  runCursor(request, initial, handler, next);
+  return new Promise((resolve) => {
+    try {
+      const request = tx.tx
+        .objectStore(index.store.name)
+        .index(index.name)
+        .openKeyCursor(queryToIDBKeyRange(query), directionToString(direction));
+      runCursor(request, initial, handler, resolve);
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }

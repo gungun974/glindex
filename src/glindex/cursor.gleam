@@ -30,6 +30,7 @@
 
 import gleam/dynamic
 import gleam/dynamic/decode
+import gleam/javascript/promise.{type Promise}
 import glindex.{type ReadWrite, type Value}
 
 @internal
@@ -220,12 +221,12 @@ pub fn continue_primary_key_values(
 ///
 pub fn cursor_delete(
   cursor: Cursor(WithValue, ReadWrite, source),
-  next: fn(Result(Nil, CursorError)) -> Nil,
-) -> Nil {
-  cursor_delete_ffi(cursor, fn(result) {
+) -> Promise(Result(Nil, CursorError)) {
+  cursor_delete_ffi(cursor)
+  |> promise.map(fn(result) {
     case result {
-      Ok(_) -> next(Ok(Nil))
-      Error(name) -> next(Error(CursorUnknownError(name)))
+      Ok(_) -> Ok(Nil)
+      Error(name) -> Error(CursorUnknownError(name))
     }
   })
 }
@@ -233,8 +234,7 @@ pub fn cursor_delete(
 @external(javascript, "./cursor_ffi.mjs", "cursor_delete")
 fn cursor_delete_ffi(
   cursor: Cursor(WithValue, ReadWrite, source),
-  next: fn(Result(Nil, String)) -> Nil,
-) -> Nil
+) -> Promise(Result(Nil, String))
 
 /// Replace the record at the current cursor position with `value`.
 ///
@@ -244,12 +244,12 @@ fn cursor_delete_ffi(
 pub fn cursor_update(
   cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,
-  next: fn(Result(Nil, CursorError)) -> Nil,
-) -> Nil {
-  cursor_update_ffi(cursor, value, fn(result) {
+) {
+  cursor_update_ffi(cursor, value)
+  |> promise.map(fn(result) {
     case result {
-      Ok(_) -> next(Ok(Nil))
-      Error(name) -> next(Error(CursorUnknownError(name)))
+      Ok(_) -> Ok(Nil)
+      Error(name) -> Error(CursorUnknownError(name))
     }
   })
 }
@@ -258,5 +258,4 @@ pub fn cursor_update(
 fn cursor_update_ffi(
   cursor: Cursor(WithValue, ReadWrite, source),
   value: Value,
-  next: fn(Result(Nil, String)) -> Nil,
-) -> Nil
+) -> Promise(Result(Nil, String))

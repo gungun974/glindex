@@ -35,6 +35,7 @@
 //// `abort` to roll back all changes made in the transaction.
 
 import gleam/dynamic/decode
+import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option}
 import glindex.{
   type Database, type Index, type Normal, type ReadOnly, type ReadWrite,
@@ -251,21 +252,19 @@ fn on_abort_ffi(
 ///
 pub fn begin(
   builder: TransactionBuilder(readonly),
-  next: fn(Result(Transaction(readonly, Normal), TransactionError)) -> a,
-) -> a {
-  begin_ffi(builder, fn(tx) {
-    case tx {
-      Ok(tx) -> next(Ok(tx))
-      Error(name) -> next(Error(UnknownError(name)))
-    }
-  })
+) -> Promise(Result(Transaction(readonly, Normal), TransactionError)) {
+  use next <- promise.new()
+
+  case begin_ffi(builder) {
+    Ok(tx) -> next(Ok(tx))
+    Error(name) -> next(Error(UnknownError(name)))
+  }
 }
 
 @external(javascript, "./transaction_ffi.mjs", "begin")
 fn begin_ffi(
   builder: TransactionBuilder(readonly),
-  next: fn(Result(Transaction(readonly, Normal), String)) -> a,
-) -> a
+) -> Result(Transaction(readonly, Normal), String)
 
 /// Abort the transaction, rolling back all writes made so far.
 ///

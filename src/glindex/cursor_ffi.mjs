@@ -16,18 +16,28 @@ export function cursor_value(cursor) {
   return cursor.value;
 }
 
-export function cursor_delete(cursor, next) {
-  const request = cursor.delete();
-  request.onsuccess = () => next(Result$Ok(undefined));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
-  return undefined;
+export function cursor_delete(cursor) {
+  return new Promise((resolve) => {
+    try {
+      const request = cursor.delete();
+      request.onsuccess = () => resolve(Result$Ok(undefined));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }
 
-export function cursor_update(cursor, value, next) {
-  const request = cursor.update(value);
-  request.onsuccess = () => next(Result$Ok(undefined));
-  request.onerror = () =>
-    next(Result$Error(request.error?.name ?? "UnknownError"));
-  return undefined;
+export function cursor_update(cursor, value) {
+  return new Promise((resolve) => {
+    try {
+      const request = cursor.update(value);
+      request.onsuccess = () => resolve(Result$Ok(undefined));
+      request.onerror = () =>
+        resolve(Result$Error(request.error?.name ?? "UnknownError"));
+    } catch (error) {
+      resolve(Result$Error(error?.name ?? "UnknownError"));
+    }
+  });
 }

@@ -1,5 +1,6 @@
 import gleam/dynamic
 import gleam/dynamic/decode
+import gleam/javascript/promise.{type Promise}
 import gleam/list
 import gleam/option
 import glindex.{type Query, type ReadWrite, type Value}
@@ -35,18 +36,18 @@ pub fn get(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(t, TransactionError)) -> a,
-) -> a {
-  get_ffi(tx, store, query, fn(result) {
+) -> Promise(Result(t, TransactionError)) {
+  get_ffi(tx, store, query)
+  |> promise.map(fn(result) {
     case result {
       Ok(raw) -> {
         case decode.run(raw, extract_store(store).decoder) {
-          Ok(value) -> next(Ok(value))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
+          Ok(value) -> Ok(value)
+          Error(errors) -> Error(UnableToDecode(errors))
         }
       }
-      Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(map_error(name)))
+      Error("NotFound") -> Error(NotFoundError)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -56,8 +57,7 @@ fn get_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read all records matching `query` from `store` and decode each one.
 ///
@@ -68,9 +68,9 @@ pub fn get_all(
   store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(t), TransactionError)) -> a,
-) -> a {
-  get_all_ffi(tx, store, query, count, fn(result) {
+) -> Promise(Result(List(t), TransactionError)) {
+  get_all_ffi(tx, store, query, count)
+  |> promise.map(fn(result) {
     case result {
       Ok(raws) -> {
         let decoded =
@@ -81,11 +81,11 @@ pub fn get_all(
             }
           })
         case decoded {
-          Ok(values) -> next(Ok(values))
-          Error(e) -> next(Error(e))
+          Ok(values) -> Ok(values)
+          Error(e) -> Error(e)
         }
       }
-      Error(name) -> next(Error(map_error(name)))
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -96,8 +96,7 @@ fn get_all_ffi(
   store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
-) -> a
+) -> Promise(Result(List(dynamic.Dynamic), String))
 
 /// Read the primary key of the first record matching `query` in `store`.
 ///
@@ -107,17 +106,17 @@ pub fn get_key(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(k, TransactionError)) -> a,
-) -> a {
-  get_key_ffi(tx, store, query, fn(result) {
+) -> Promise(Result(k, TransactionError)) {
+  get_key_ffi(tx, store, query)
+  |> promise.map(fn(result) {
     case result {
       Ok(raw) ->
         case decode.run(raw, extract_store(store).key_decoder) {
-          Ok(value) -> next(Ok(value))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
+          Ok(value) -> Ok(value)
+          Error(errors) -> Error(UnableToDecode(errors))
         }
-      Error("NotFound") -> next(Error(NotFoundError))
-      Error(name) -> next(Error(map_error(name)))
+      Error("NotFound") -> Error(NotFoundError)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -127,8 +126,7 @@ fn get_key_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Read the primary keys of all records matching `query` in `store`.
 ///
@@ -139,9 +137,9 @@ pub fn get_all_keys(
   store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(k), TransactionError)) -> a,
-) -> a {
-  get_all_keys_ffi(tx, store, query, count, fn(result) {
+) -> Promise(Result(List(k), TransactionError)) {
+  get_all_keys_ffi(tx, store, query, count)
+  |> promise.map(fn(result) {
     case result {
       Ok(raws) -> {
         let decoded =
@@ -152,11 +150,11 @@ pub fn get_all_keys(
             }
           })
         case decoded {
-          Ok(values) -> next(Ok(values))
-          Error(e) -> next(Error(e))
+          Ok(values) -> Ok(values)
+          Error(e) -> Error(e)
         }
       }
-      Error(name) -> next(Error(map_error(name)))
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -167,8 +165,7 @@ fn get_all_keys_ffi(
   store: TransactionStore(any, t, k),
   query: Query,
   count: option.Option(Int),
-  next: fn(Result(List(dynamic.Dynamic), String)) -> a,
-) -> a
+) -> Promise(Result(List(dynamic.Dynamic), String))
 
 /// Count the records matching `query` in `store`.
 ///
@@ -176,12 +173,12 @@ pub fn count(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(Int, TransactionError)) -> a,
-) -> a {
-  count_ffi(tx, store, query, fn(result) {
+) -> Promise(Result(Int, TransactionError)) {
+  count_ffi(tx, store, query)
+  |> promise.map(fn(result) {
     case result {
-      Ok(n) -> next(Ok(n))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(n) -> Ok(n)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -191,8 +188,7 @@ fn count_ffi(
   tx: Transaction(rw, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(Int, String)) -> a,
-) -> a
+) -> Promise(Result(Int, String))
 
 /// Insert a new record into `store` and return its generated primary key.
 ///
@@ -203,17 +199,17 @@ pub fn add(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
   value: t,
-  next: fn(Result(k, TransactionError)) -> a,
-) -> a {
+) -> Promise(Result(k, TransactionError)) {
   let store_config = extract_store(store)
-  add_ffi(tx, store, store_config.to_value(value, glindex.Add), fn(result) {
+  add_ffi(tx, store, store_config.to_value(value, glindex.Add))
+  |> promise.map(fn(result) {
     case result {
       Ok(raw) ->
         case decode.run(raw, store_config.key_decoder) {
-          Ok(key) -> next(Ok(key))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
+          Ok(key) -> Ok(key)
+          Error(errors) -> Error(UnableToDecode(errors))
         }
-      Error(name) -> next(Error(map_error(name)))
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -223,8 +219,7 @@ fn add_ffi(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
   value: Value,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Insert or replace a record in `store` and return its primary key.
 ///
@@ -235,17 +230,17 @@ pub fn put(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
   value: t,
-  next: fn(Result(k, TransactionError)) -> a,
-) -> a {
+) -> Promise(Result(k, TransactionError)) {
   let store_config = extract_store(store)
-  put_ffi(tx, store, store_config.to_value(value, glindex.Put), fn(result) {
+  put_ffi(tx, store, store_config.to_value(value, glindex.Put))
+  |> promise.map(fn(result) {
     case result {
       Ok(raw) ->
         case decode.run(raw, store_config.key_decoder) {
-          Ok(key) -> next(Ok(key))
-          Error(errors) -> next(Error(UnableToDecode(errors)))
+          Ok(key) -> Ok(key)
+          Error(errors) -> Error(UnableToDecode(errors))
         }
-      Error(name) -> next(Error(map_error(name)))
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -255,8 +250,7 @@ fn put_ffi(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
   value: Value,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Insert a new record with an explicit out-of-line key.
 ///
@@ -268,25 +262,24 @@ pub fn add_with_out_of_line_key(
   store: TransactionStore(any, t, k),
   value: t,
   key: Value,
-  next: fn(Result(k, TransactionError)) -> a,
-) -> a {
+) -> Promise(Result(k, TransactionError)) {
   let store_config = extract_store(store)
   add_with_out_of_line_key_ffi(
     tx,
     store,
     store_config.to_value(value, glindex.AddOutOfLineKey),
     key,
-    fn(result) {
-      case result {
-        Ok(raw) ->
-          case decode.run(raw, store_config.key_decoder) {
-            Ok(k) -> next(Ok(k))
-            Error(errors) -> next(Error(UnableToDecode(errors)))
-          }
-        Error(name) -> next(Error(map_error(name)))
-      }
-    },
   )
+  |> promise.map(fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, store_config.key_decoder) {
+          Ok(k) -> Ok(k)
+          Error(errors) -> Error(UnableToDecode(errors))
+        }
+      Error(name) -> Error(map_error(name))
+    }
+  })
 }
 
 @external(javascript, "./transaction_ffi.mjs", "store_add_with_out_of_line_key")
@@ -295,8 +288,7 @@ fn add_with_out_of_line_key_ffi(
   store: TransactionStore(any, t, k),
   value: Value,
   key: Value,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Insert or replace a record with an explicit out-of-line key.
 ///
@@ -305,25 +297,24 @@ pub fn put_with_out_of_line_key(
   store: TransactionStore(any, t, k),
   value: t,
   key: Value,
-  next: fn(Result(k, TransactionError)) -> a,
-) -> a {
+) -> Promise(Result(k, TransactionError)) {
   let store_config = extract_store(store)
   put_with_out_of_line_key_ffi(
     tx,
     store,
     store_config.to_value(value, glindex.Put),
     key,
-    fn(result) {
-      case result {
-        Ok(raw) ->
-          case decode.run(raw, store_config.key_decoder) {
-            Ok(k) -> next(Ok(k))
-            Error(errors) -> next(Error(UnableToDecode(errors)))
-          }
-        Error(name) -> next(Error(map_error(name)))
-      }
-    },
   )
+  |> promise.map(fn(result) {
+    case result {
+      Ok(raw) ->
+        case decode.run(raw, store_config.key_decoder) {
+          Ok(k) -> Ok(k)
+          Error(errors) -> Error(UnableToDecode(errors))
+        }
+      Error(name) -> Error(map_error(name))
+    }
+  })
 }
 
 @external(javascript, "./transaction_ffi.mjs", "store_put_with_out_of_line_key")
@@ -332,8 +323,7 @@ fn put_with_out_of_line_key_ffi(
   store: TransactionStore(any, t, k),
   value: Value,
   key: Value,
-  next: fn(Result(dynamic.Dynamic, String)) -> a,
-) -> a
+) -> Promise(Result(dynamic.Dynamic, String))
 
 /// Delete all records matching `query` from `store`.
 ///
@@ -341,12 +331,12 @@ pub fn delete(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(Nil, TransactionError)) -> a,
-) -> a {
-  delete_ffi(tx, store, query, fn(result) {
+) -> Promise(Result(Nil, TransactionError)) {
+  delete_ffi(tx, store, query)
+  |> promise.map(fn(result) {
     case result {
-      Ok(_) -> next(Ok(Nil))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(_) -> Ok(Nil)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -356,20 +346,19 @@ fn delete_ffi(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
   query: Query,
-  next: fn(Result(Nil, String)) -> a,
-) -> a
+) -> Promise(Result(Nil, String))
 
 /// Delete every record in `store`.
 ///
 pub fn clear(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
-  next: fn(Result(Nil, TransactionError)) -> a,
-) -> a {
-  clear_ffi(tx, store, fn(result) {
+) -> Promise(Result(Nil, TransactionError)) {
+  clear_ffi(tx, store)
+  |> promise.map(fn(result) {
     case result {
-      Ok(_) -> next(Ok(Nil))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(_) -> Ok(Nil)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -378,8 +367,7 @@ pub fn clear(
 fn clear_ffi(
   tx: Transaction(ReadWrite, upgrade),
   store: TransactionStore(any, t, k),
-  next: fn(Result(Nil, String)) -> a,
-) -> a
+) -> Promise(Result(Nil, String))
 
 /// Open a full-value cursor over `store` and iterate with `handler`.
 ///
@@ -397,17 +385,18 @@ pub fn open_cursor(
   query: Query,
   direction: CursorDirection,
   initial: state,
-  handler: fn(
-    state,
-    Cursor(WithValue, rw, StoreCursor),
-    fn(state, CursorNext(StoreCursor)) -> Nil,
-  ) -> Nil,
-  next: fn(Result(state, TransactionError)) -> a,
-) -> a {
-  open_cursor_ffi(tx, store, query, direction, initial, handler, fn(result) {
+  handler: fn(state, Cursor(WithValue, rw, StoreCursor)) ->
+    Promise(#(state, CursorNext(StoreCursor))),
+) -> Promise(Result(state, TransactionError)) {
+  open_cursor_ffi(tx, store, query, direction, initial, fn(state, cursor, next) {
+    handler(state, cursor)
+    |> promise.map(fn(entry) { next(entry.0, entry.1) })
+    Nil
+  })
+  |> promise.map(fn(result) {
     case result {
-      Ok(state) -> next(Ok(state))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(state) -> Ok(state)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -424,8 +413,7 @@ fn open_cursor_ffi(
     Cursor(WithValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, String)) -> a,
-) -> a
+) -> Promise(Result(state, String))
 
 /// Open a key-only cursor over `store` and iterate with `handler`.
 ///
@@ -439,17 +427,25 @@ pub fn open_key_cursor(
   query: Query,
   direction: CursorDirection,
   initial: state,
-  handler: fn(
-    state,
-    Cursor(WithoutValue, rw, StoreCursor),
-    fn(state, CursorNext(StoreCursor)) -> Nil,
-  ) -> Nil,
-  next: fn(Result(state, TransactionError)) -> a,
-) -> a {
-  open_key_cursor_ffi(tx, store, query, direction, initial, handler, fn(result) {
+  handler: fn(state, Cursor(WithoutValue, rw, StoreCursor)) ->
+    Promise(#(state, CursorNext(StoreCursor))),
+) -> Promise(Result(state, TransactionError)) {
+  open_key_cursor_ffi(
+    tx,
+    store,
+    query,
+    direction,
+    initial,
+    fn(state, cursor, next) {
+      handler(state, cursor)
+      |> promise.map(fn(entry) { next(entry.0, entry.1) })
+      Nil
+    },
+  )
+  |> promise.map(fn(result) {
     case result {
-      Ok(state) -> next(Ok(state))
-      Error(name) -> next(Error(map_error(name)))
+      Ok(state) -> Ok(state)
+      Error(name) -> Error(map_error(name))
     }
   })
 }
@@ -466,5 +462,4 @@ fn open_key_cursor_ffi(
     Cursor(WithoutValue, rw, StoreCursor),
     fn(state, CursorNext(StoreCursor)) -> Nil,
   ) -> Nil,
-  next: fn(Result(state, String)) -> a,
-) -> a
+) -> Promise(Result(state, String))
