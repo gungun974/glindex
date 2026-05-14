@@ -34,7 +34,7 @@ import gleam/time/timestamp.{type Timestamp}
 /// pub const track_store: Store(TrackStore) = Store("tracks")
 /// ```
 ///
-pub type Store(store_type, t, k) {
+pub opaque type Store(store_type, key_mode, t, k) {
   Store(
     name: String,
     to_value: fn(t, Action) -> Value,
@@ -44,11 +44,66 @@ pub type Store(store_type, t, k) {
   )
 }
 
+pub type InlineKey
+
+pub type OutOfLineKey
+
+pub fn store(
+  name name: String,
+  to_value to_value: fn(t, Action) -> Value,
+  decoder decoder: decode.Decoder(t),
+  to_key to_key: fn(k) -> Value,
+  key_decoder key_decoder: decode.Decoder(k),
+) -> Store(store_type, InlineKey, t, k) {
+  Store(name:, to_value:, decoder:, to_key:, key_decoder:)
+}
+
+pub fn store_with_out_of_line_key(
+  name name: String,
+  to_value to_value: fn(t, Action) -> Value,
+  decoder decoder: decode.Decoder(t),
+  to_key to_key: fn(k) -> Value,
+  key_decoder key_decoder: decode.Decoder(k),
+) -> Store(store_type, OutOfLineKey, t, k) {
+  Store(name:, to_value:, decoder:, to_key:, key_decoder:)
+}
+
+@internal
+pub fn store_name(store: Store(store_type, key_mode, t, k)) -> String {
+  store.name
+}
+
+@internal
+pub fn store_to_value(
+  store: Store(store_type, key_mode, t, k),
+) -> fn(t, Action) -> Value {
+  store.to_value
+}
+
+@internal
+pub fn store_decoder(
+  store: Store(store_type, key_mode, t, k),
+) -> decode.Decoder(t) {
+  store.decoder
+}
+
+@internal
+pub fn store_to_key(
+  store: Store(store_type, key_mode, t, k),
+) -> fn(k) -> Value {
+  store.to_key
+}
+
+@internal
+pub fn store_key_decoder(
+  store: Store(store_type, key_mode, t, k),
+) -> decode.Decoder(k) {
+  store.key_decoder
+}
+
 pub type Action {
   Add
   Put
-  AddOutOfLineKey
-  PutOutOfLineKey
 }
 
 /// A reference to an index on a specific object store.
@@ -65,12 +120,37 @@ pub type Action {
 /// )
 /// ```
 ///
-pub type Index(store_type, t, k, i) {
+pub opaque type Index(store_type, t, k, i) {
   Index(
     name: String,
     to_index_key: fn(i) -> Value,
     index_key_decoder: decode.Decoder(i),
   )
+}
+
+pub fn index(
+  name name: String,
+  to_index_key to_index_key: fn(i) -> Value,
+  index_key_decoder index_key_decoder: decode.Decoder(i),
+) -> Index(store_type, t, k, i) {
+  Index(name:, to_index_key:, index_key_decoder:)
+}
+
+@internal
+pub fn index_name(index: Index(store_type, t, k, i)) -> String {
+  index.name
+}
+
+@internal
+pub fn index_to_index_key(index: Index(store_type, t, k, i)) -> fn(i) -> Value {
+  index.to_index_key
+}
+
+@internal
+pub fn index_index_key_decoder(
+  index: Index(store_type, t, k, i),
+) -> decode.Decoder(i) {
+  index.index_key_decoder
 }
 
 /// Hold an IndexedDB database connection.

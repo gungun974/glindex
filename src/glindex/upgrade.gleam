@@ -135,17 +135,17 @@ pub fn index_options() -> IndexOptions {
 pub fn store(
   _: Transaction(ReadWrite, VersionChange),
   name: String,
-) -> TransactionStore(Nil, Nil, Nil) {
+) -> TransactionStore(Nil, key_mode, Nil, Nil) {
   store_ffi(name)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "store")
-fn store_ffi(name: String) -> TransactionStore(Nil, Nil, Nil)
+fn store_ffi(name: String) -> TransactionStore(Nil, key_mode, Nil, Nil)
 
 /// Get a handle to an existing index by name on the given store.
 ///
 pub fn index(
-  store: TransactionStore(store_type, t, k),
+  store: TransactionStore(store_type, key_mode, t, k),
   name: String,
 ) -> TransactionIndex(t, k, i) {
   index_ffi(store, name)
@@ -153,7 +153,7 @@ pub fn index(
 
 @external(javascript, "./upgrade_ffi.mjs", "index")
 fn index_ffi(
-  store: TransactionStore(store_type, t, k),
+  store: TransactionStore(store_type, key_mode, t, k),
   name: String,
 ) -> TransactionIndex(t, k, i)
 
@@ -166,7 +166,7 @@ pub fn create_store(
   tx: Transaction(ReadWrite, VersionChange),
   name: String,
   options: StoreOptions,
-) -> Result(TransactionStore(Nil, t, k), UpgradeError) {
+) -> Result(TransactionStore(Nil, key_mode, t, k), UpgradeError) {
   create_store_ffi(tx, name, options) |> result.map_error(map_error)
 }
 
@@ -175,7 +175,7 @@ fn create_store_ffi(
   tx: Transaction(ReadWrite, VersionChange),
   name: String,
   options: StoreOptions,
-) -> Result(TransactionStore(Nil, t, k), String)
+) -> Result(TransactionStore(Nil, key_mode, t, k), String)
 
 /// Delete an existing object store and all records it contains.
 ///
@@ -233,7 +233,7 @@ fn delete_index_ffi(
 ///
 pub fn store_key_path(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
 ) -> Result(KeyPath, UpgradeError) {
   store_key_path_ffi(tx, store) |> result.map_error(map_error)
 }
@@ -241,14 +241,14 @@ pub fn store_key_path(
 @external(javascript, "./upgrade_ffi.mjs", "store_key_path")
 fn store_key_path_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
 ) -> Result(KeyPath, String)
 
 /// Return whether the store uses auto-incrementing keys.
 ///
 pub fn store_auto_increment(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
 ) -> Result(Bool, UpgradeError) {
   store_auto_increment_ffi(tx, store) |> result.map_error(map_error)
 }
@@ -256,7 +256,7 @@ pub fn store_auto_increment(
 @external(javascript, "./upgrade_ffi.mjs", "store_auto_increment")
 fn store_auto_increment_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
 ) -> Result(Bool, String)
 
 /// Return the key path configuration of an index.
@@ -308,18 +308,18 @@ fn index_multi_entry_ffi(
 ///
 pub fn rename_store(
   tx: Transaction(ReadWrite, VersionChange),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
   new_name: String,
-) -> Result(TransactionStore(Nil, t, k), UpgradeError) {
+) -> Result(TransactionStore(Nil, key_mode, t, k), UpgradeError) {
   rename_store_ffi(tx, store, new_name) |> result.map_error(map_error)
 }
 
 @external(javascript, "./upgrade_ffi.mjs", "rename_store")
 fn rename_store_ffi(
   tx: Transaction(ReadWrite, VersionChange),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
   new_name: String,
-) -> Result(TransactionStore(Nil, t, k), String)
+) -> Result(TransactionStore(Nil, key_mode, t, k), String)
 
 /// Rename an index. Returns a handle with the new name.
 ///
@@ -351,7 +351,7 @@ fn object_store_names_ffi(tx: Transaction(rw, upgrade)) -> List(String)
 ///
 pub fn index_names(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
 ) -> Result(List(String), UpgradeError) {
   index_names_ffi(tx, store) |> result.map_error(map_error)
 }
@@ -359,5 +359,5 @@ pub fn index_names(
 @external(javascript, "./upgrade_ffi.mjs", "index_names")
 fn index_names_ffi(
   tx: Transaction(rw, upgrade),
-  store: TransactionStore(any, t, k),
+  store: TransactionStore(any, key_mode, t, k),
 ) -> Result(List(String), String)

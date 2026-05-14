@@ -21,15 +21,14 @@ import {
   Query$Bound$upper,
   Query$Bound$exclusive_lower,
   Query$Bound$exclusive_upper,
-  Store$Store,
-  Store$Store$name,
-  Store$Store$to_value,
-  Store$Store$decoder,
-  Store$Store$to_key,
-  Store$Store$key_decoder,
-  Index$Index$name,
-  Index$Index$to_index_key,
-  Index$Index$index_key_decoder,
+  store_name,
+  store_to_value,
+  store_decoder,
+  store_to_key,
+  store_key_decoder,
+  index_name,
+  index_to_index_key,
+  index_index_key_decoder,
 } from "../glindex.mjs";
 
 import {
@@ -126,12 +125,12 @@ export function on_abort(builder, handler) {
   return builder;
 }
 
-export function store(builder, store) {
-  const name = Store$Store$name(store);
-  const to_value = Store$Store$to_value(store);
-  const decoder = Store$Store$decoder(store);
-  const to_key = Store$Store$to_key(store);
-  const key_decoder = Store$Store$key_decoder(store);
+export function store(builder, gleam_store) {
+  const name = store_name(gleam_store);
+  const to_value = store_to_value(gleam_store);
+  const decoder = store_decoder(gleam_store);
+  const to_key = store_to_key(gleam_store);
+  const key_decoder = store_key_decoder(gleam_store);
   builder.stores.push(name);
   return [
     builder,
@@ -145,21 +144,15 @@ export function store(builder, store) {
   ];
 }
 
-export function index(store, index) {
-  const name = Index$Index$name(index);
-  const to_key = Index$Index$to_index_key(index);
-  const key_decoder = Index$Index$index_key_decoder(index);
+export function index(store, gleam_index) {
+  const name = index_name(gleam_index);
+  const to_key = index_to_index_key(gleam_index);
+  const key_decoder = index_index_key_decoder(gleam_index);
   return { store, name, to_key, key_decoder };
 }
 
 export function extract_store(store) {
-  return Store$Store(
-    store.name,
-    store.to_value,
-    store.decoder,
-    store.to_key,
-    store.key_decoder,
-  );
+  return [store.decoder, store.key_decoder, store.to_value];
 }
 
 export function extract_index(index) {

@@ -2,7 +2,7 @@ import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
 import gleam/list
 import gleam/option
-import glindex.{Store}
+import glindex
 import glindex/database
 import glindex/store
 import glindex/transaction
@@ -12,7 +12,7 @@ import glindex/upgrade
 pub fn fake_indexeddb() -> Nil
 
 fn test_store() {
-  Store(
+  glindex.store(
     name: "my_store",
     to_value: fn(data: #(Int, String), _) {
       case data.0 {
@@ -464,7 +464,7 @@ pub fn store_with_no_key_path_test() -> Promise(Nil) {
         let #(builder, my_store) =
           transaction.store(
             builder,
-            Store(
+            glindex.store(
               name: "my_store",
               to_value: fn(data: String, _) {
                 glindex.object([
@@ -528,7 +528,7 @@ pub fn store_with_composite_key_path_test() -> Promise(Nil) {
         let builder = transaction.prepare(db, transaction.read_write)
         let #(builder, my_store) =
           transaction.store(builder, {
-            Store(
+            glindex.store(
               name: "my_store",
               to_value: fn(data: #(String, String), _) {
                 glindex.object([
@@ -595,7 +595,34 @@ pub fn store_add_with_out_of_line_key_test() -> Promise(Nil) {
       Error(_) -> panic
       Ok(db) -> {
         let builder = transaction.prepare(db, transaction.read_write)
-        let #(builder, my_store) = transaction.store(builder, test_store())
+        let #(builder, my_store) =
+          transaction.store(
+            builder,
+            glindex.store_with_out_of_line_key(
+              name: "my_store",
+              to_value: fn(data: #(Int, String), _) {
+                case data.0 {
+                  0 -> {
+                    glindex.object([
+                      #("name", glindex.string(data.1)),
+                    ])
+                  }
+                  _ ->
+                    glindex.object([
+                      #("id", glindex.int(data.0)),
+                      #("name", glindex.string(data.1)),
+                    ])
+                }
+              },
+              decoder: {
+                use id <- decode.field("id", decode.int)
+                use name <- decode.field("name", decode.string)
+                decode.success(#(id, name))
+              },
+              to_key: fn(key) { glindex.int(key) },
+              key_decoder: decode.int,
+            ),
+          )
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add_with_out_of_line_key(
             tx,
@@ -644,7 +671,34 @@ pub fn store_put_with_out_of_line_key_test() -> Promise(Nil) {
       Error(_) -> panic
       Ok(db) -> {
         let builder = transaction.prepare(db, transaction.read_write)
-        let #(builder, my_store) = transaction.store(builder, test_store())
+        let #(builder, my_store) =
+          transaction.store(
+            builder,
+            glindex.store_with_out_of_line_key(
+              name: "my_store",
+              to_value: fn(data: #(Int, String), _) {
+                case data.0 {
+                  0 -> {
+                    glindex.object([
+                      #("name", glindex.string(data.1)),
+                    ])
+                  }
+                  _ ->
+                    glindex.object([
+                      #("id", glindex.int(data.0)),
+                      #("name", glindex.string(data.1)),
+                    ])
+                }
+              },
+              decoder: {
+                use id <- decode.field("id", decode.int)
+                use name <- decode.field("name", decode.string)
+                decode.success(#(id, name))
+              },
+              to_key: fn(key) { glindex.int(key) },
+              key_decoder: decode.int,
+            ),
+          )
         promise.try_await(transaction.begin(builder), fn(tx) {
           store.add_with_out_of_line_key(
             tx,
@@ -778,7 +832,7 @@ pub fn store_add_data_error_test() -> Promise(Nil) {
         let #(builder, my_store) =
           transaction.store(
             builder,
-            Store(
+            glindex.store(
               name: "my_store",
               to_value: fn(_: #(Int, String), _) { glindex.null() },
               decoder: decode.success(#(0, "")),
@@ -828,7 +882,7 @@ pub fn store_add_constraint_error_test() -> Promise(Nil) {
         let #(builder, my_store) =
           transaction.store(
             builder,
-            Store(
+            glindex.store(
               name: "my_store",
               to_value: fn(data: #(Int, String), _) {
                 glindex.object([

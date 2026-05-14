@@ -3,7 +3,7 @@ import gleam/dynamic/decode
 import gleam/javascript/promise
 import gleam/option
 import gleam/result
-import glindex.{type Database, type Index, type Store, Index, Store}
+import glindex.{type Database, type Index, type Store}
 import glindex/cursor
 import glindex/index
 import glindex/store
@@ -11,8 +11,8 @@ import glindex/transaction.{type TransactionError}
 
 pub type TrackStore
 
-pub fn track_store() -> Store(TrackStore, _, _) {
-  Store(
+pub fn track_store() -> Store(TrackStore, _, _, _) {
+  glindex.store(
     name: "tracks",
     to_value: fn(track: Track, action: glindex.Action) {
       case action {
@@ -42,7 +42,7 @@ pub fn track_store() -> Store(TrackStore, _, _) {
 }
 
 pub fn track_artist_index() -> Index(TrackStore, _, _, _) {
-  Index(
+  glindex.index(
     name: "tracks_artist",
     to_index_key: fn(key) { glindex.string(key) },
     index_key_decoder: decode.string,
@@ -50,7 +50,7 @@ pub fn track_artist_index() -> Index(TrackStore, _, _, _) {
 }
 
 pub fn track_artist_album_index() -> Index(TrackStore, _, _, _) {
-  Index(
+  glindex.index(
     name: "tracks_artist_and_album",
     to_index_key: fn(key: #(String, String)) {
       glindex.array([glindex.string(key.0), glindex.string(key.1)])

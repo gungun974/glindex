@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
 import gleam/list
-import glindex.{Store}
+import glindex
 import glindex/database
 import glindex/transaction
 import glindex/upgrade
@@ -621,7 +621,7 @@ pub fn object_store_names_test() -> Promise(Nil) {
         let #(builder, _) =
           transaction.store(
             builder,
-            Store(
+            glindex.store(
               name: "store_a",
               to_value: fn(_, _) { glindex.null() },
               decoder: decode.dynamic,
@@ -632,7 +632,7 @@ pub fn object_store_names_test() -> Promise(Nil) {
         let #(builder, _) =
           transaction.store(
             builder,
-            Store(
+            glindex.store(
               name: "store_b",
               to_value: fn(_, _) { glindex.null() },
               decoder: decode.dynamic,
@@ -697,7 +697,7 @@ pub fn index_names_test() -> Promise(Nil) {
         let #(builder, my_store) =
           transaction.store(
             builder,
-            Store(
+            glindex.store(
               name: "my_store",
               to_value: fn(_, _) { glindex.null() },
               decoder: decode.dynamic,

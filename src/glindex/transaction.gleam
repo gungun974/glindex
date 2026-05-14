@@ -88,7 +88,7 @@ pub type Transaction(readonly, upgrade)
 /// The phantom type `store_type` must match the `Store` used to obtain it,
 /// preventing indexes from one store being used with another store's handle.
 ///
-pub type TransactionStore(store_type, t, k)
+pub type TransactionStore(store_type, key_mode, t, k)
 
 /// Handle to an index obtained via `transaction.index`.
 ///
@@ -147,16 +147,22 @@ fn prepare_ffi(db: Database, mode: String) -> TransactionBuilder(readonly)
 ///
 pub fn store(
   builder: TransactionBuilder(readonly),
-  store: Store(store_type, t, k),
-) -> #(TransactionBuilder(readonly), TransactionStore(store_type, t, k)) {
+  store: Store(store_type, key_mode, t, k),
+) -> #(
+  TransactionBuilder(readonly),
+  TransactionStore(store_type, key_mode, t, k),
+) {
   store_ffi(builder, store)
 }
 
 @external(javascript, "./transaction_ffi.mjs", "store")
 fn store_ffi(
   builder: TransactionBuilder(readonly),
-  store: Store(store_type, t, k),
-) -> #(TransactionBuilder(readonly), TransactionStore(store_type, t, k))
+  store: Store(store_type, key_mode, t, k),
+) -> #(
+  TransactionBuilder(readonly),
+  TransactionStore(store_type, key_mode, t, k),
+)
 
 /// Obtain an index handle from a store handle.
 ///
@@ -164,7 +170,7 @@ fn store_ffi(
 /// same phantom type.
 ///
 pub fn index(
-  store: TransactionStore(store_type, t, k),
+  store: TransactionStore(store_type, key_mode, t, k),
   name: Index(store_type, t, k, i),
 ) -> TransactionIndex(t, k, i) {
   index_ffi(store, name)
@@ -172,7 +178,7 @@ pub fn index(
 
 @external(javascript, "./transaction_ffi.mjs", "index")
 fn index_ffi(
-  store: TransactionStore(store_type, t, k),
+  store: TransactionStore(store_type, key_mode, t, k),
   name: Index(store_type, t, k, i),
 ) -> TransactionIndex(t, k, i)
 

@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
 import gleam/option.{None, Some}
-import glindex.{Store}
+import glindex
 import glindex/database
 import glindex/store
 import glindex/transaction
@@ -14,7 +14,7 @@ pub fn fake_indexeddb() -> Nil
 fn make_tracker() -> #(fn() -> Nil, fn() -> Bool)
 
 fn test_store() {
-  Store(
+  glindex.store(
     name: "my_store",
     to_value: fn(data: #(Int, String), _) {
       case data.0 {

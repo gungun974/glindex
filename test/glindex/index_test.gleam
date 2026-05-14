@@ -2,7 +2,7 @@ import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
 import gleam/list
 import gleam/option
-import glindex.{Index, Store}
+import glindex
 import glindex/database
 import glindex/index
 import glindex/store
@@ -13,7 +13,7 @@ import glindex/upgrade
 pub fn fake_indexeddb() -> Nil
 
 fn test_store() {
-  Store(
+  glindex.store(
     name: "my_store",
     to_value: fn(data: #(Int, String), _) {
       case data.0 {
@@ -40,7 +40,7 @@ fn test_store() {
 }
 
 fn test_index() {
-  Index(
+  glindex.index(
     name: "name_idx",
     to_index_key: fn(key) { glindex.string(key) },
     index_key_decoder: decode.string,
