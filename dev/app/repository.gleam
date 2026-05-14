@@ -42,7 +42,11 @@ pub fn track_store() -> Store(TrackStore, _, _) {
 }
 
 pub fn track_artist_index() -> Index(TrackStore, _, _, _) {
-  Index(name: "tracks_artist", to_index_key: fn(key) { glindex.string(key) })
+  Index(
+    name: "tracks_artist",
+    to_index_key: fn(key) { glindex.string(key) },
+    index_key_decoder: decode.string,
+  )
 }
 
 pub fn track_artist_album_index() -> Index(TrackStore, _, _, _) {
@@ -50,6 +54,11 @@ pub fn track_artist_album_index() -> Index(TrackStore, _, _, _) {
     name: "tracks_artist_and_album",
     to_index_key: fn(key: #(String, String)) {
       glindex.array([glindex.string(key.0), glindex.string(key.1)])
+    },
+    index_key_decoder: {
+      use first <- decode.field(0, decode.string)
+      use second <- decode.field(1, decode.string)
+      decode.success(#(first, second))
     },
   )
 }
@@ -178,7 +187,7 @@ pub fn get_tracks_shorter_than(
   case tx {
     Ok(tx) -> {
       store.open_cursor(tx, store, glindex.All, cursor.Next, [], fn(acc, cur) {
-        case cursor.cursor_value(cur, track_decoder()) {
+        case cursor.cursor_value(cur) {
           Ok(track) if track.duration < max_duration -> {
             promise.resolve(#([track, ..acc], cursor.continue()))
           }
@@ -245,17 +254,11 @@ pub fn rename_artist(
         cursor.Next,
         Nil,
         fn(_, cur) {
-          case cursor.cursor_value(cur, track_decoder()) {
+          case cursor.cursor_value(cur) {
             Ok(track) -> {
               use _ <- promise.map(cursor.cursor_update(
                 cur,
-                glindex.object([
-                  #("id", glindex.int(track.id)),
-                  #("title", glindex.string(track.title)),
-                  #("album", glindex.string(track.album)),
-                  #("artist", glindex.string(new_name)),
-                  #("duration", glindex.int(track.duration)),
-                ]),
+                Track(..track, artist: new_name),
               ))
 
               #(Nil, cursor.continue())
@@ -284,7 +287,7 @@ pub fn get_tracks_from_prolific_artists(
   case tx {
     Ok(tx) -> {
       store.open_cursor(tx, store, glindex.All, cursor.Next, [], fn(acc, cur) {
-        case cursor.cursor_value(cur, track_decoder()) {
+        case cursor.cursor_value(cur) {
           Ok(track) -> {
             use count_result <- promise.map(index.count(
               tx,

@@ -29,6 +29,7 @@ import {
   Store$Store$key_decoder,
   Index$Index$name,
   Index$Index$to_index_key,
+  Index$Index$index_key_decoder,
 } from "../glindex.mjs";
 
 import {
@@ -145,7 +146,8 @@ export function store(builder, store) {
 export function index(store, index) {
   const name = Index$Index$name(index);
   const to_key = Index$Index$to_index_key(index);
-  return { store, name, to_key };
+  const key_decoder = Index$Index$index_key_decoder(index);
+  return { store, name, to_key, key_decoder };
 }
 
 export function extract_store(store) {
@@ -447,23 +449,45 @@ export function index_get_all(tx, index, query, count) {
   });
 }
 
-function runCursor(request, initial, handler, resolve) {
+function runCursor(
+  to_value,
+  to_primary_key,
+  to_key,
+  decoder,
+  primary_key_decoder,
+  key_decoder,
+  request,
+  initial,
+  handler,
+  resolve,
+) {
   let state = initial;
   request.onsuccess = () => {
-    const cursor = request.result;
-    if (!cursor) {
+    const cursor = {
+      cursor: request.result,
+      to_value,
+      to_primary_key,
+      to_key,
+      decoder,
+      primary_key_decoder,
+      key_decoder,
+    };
+    if (!cursor.cursor) {
       resolve(Result$Ok(state));
       return;
     }
     handler(state, cursor, (newState, cursorNext) => {
       state = newState;
       if (is_continue(cursorNext)) {
-        cursor.continue();
+        cursor.cursor.continue();
       } else if (is_advance(cursorNext)) {
-        cursor.advance(advance_steps(cursorNext));
+        cursor.cursor.advance(advance_steps(cursorNext));
       } else if (is_continue_primary_key(cursorNext)) {
         const values = continue_primary_key_values(cursorNext);
-        cursor.continuePrimaryKey(values[0], values[1]);
+        cursor.cursor.continuePrimaryKey(
+          cursor.to_key(values[0]),
+          cursor.to_primary_key(values[1]),
+        );
       } else if (is_stop(cursorNext)) {
         resolve(Result$Ok(newState));
       }
@@ -489,7 +513,18 @@ export function store_open_cursor(
           queryToIDBKeyRange(query, store.to_key),
           directionToString(direction),
         );
-      runCursor(request, initial, handler, resolve);
+      runCursor(
+        store.to_value,
+        store.to_key,
+        store.to_key,
+        store.decoder,
+        store.key_decoder,
+        store.key_decoder,
+        request,
+        initial,
+        handler,
+        resolve,
+      );
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
     }
@@ -513,7 +548,18 @@ export function index_open_cursor(
           queryToIDBKeyRange(query, index.to_key),
           directionToString(direction),
         );
-      runCursor(request, initial, handler, resolve);
+      runCursor(
+        index.store.to_value,
+        index.store.to_key,
+        index.to_key,
+        index.store.decoder,
+        index.store.key_decoder,
+        index.key_decoder,
+        request,
+        initial,
+        handler,
+        resolve,
+      );
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
     }
@@ -536,7 +582,18 @@ export function store_open_key_cursor(
           queryToIDBKeyRange(query, store.to_key),
           directionToString(direction),
         );
-      runCursor(request, initial, handler, resolve);
+      runCursor(
+        store.to_value,
+        store.to_key,
+        store.to_key,
+        store.decoder,
+        store.key_decoder,
+        store.key_decoder,
+        request,
+        initial,
+        handler,
+        resolve,
+      );
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
     }
@@ -560,7 +617,18 @@ export function index_open_key_cursor(
           queryToIDBKeyRange(query, index.to_key),
           directionToString(direction),
         );
-      runCursor(request, initial, handler, resolve);
+      runCursor(
+        index.store.to_value,
+        index.store.to_key,
+        index.to_key,
+        index.store.decoder,
+        index.store.key_decoder,
+        index.key_decoder,
+        request,
+        initial,
+        handler,
+        resolve,
+      );
     } catch (error) {
       resolve(Result$Error(error?.name ?? "UnknownError"));
     }

@@ -66,7 +66,11 @@ pub type Action {
 /// ```
 ///
 pub type Index(store_type, t, k, i) {
-  Index(name: String, to_index_key: fn(i) -> Value)
+  Index(
+    name: String,
+    to_index_key: fn(i) -> Value,
+    index_key_decoder: decode.Decoder(i),
+  )
 }
 
 /// Hold an IndexedDB database connection.

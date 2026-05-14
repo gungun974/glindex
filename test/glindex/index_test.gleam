@@ -40,7 +40,11 @@ fn test_store() {
 }
 
 fn test_index() {
-  Index(name: "name_idx", to_index_key: fn(key) { glindex.string(key) })
+  Index(
+    name: "name_idx",
+    to_index_key: fn(key) { glindex.string(key) },
+    index_key_decoder: decode.string,
+  )
 }
 
 pub fn index_get_test() -> Promise(Nil) {

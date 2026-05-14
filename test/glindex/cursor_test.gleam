@@ -40,7 +40,11 @@ fn test_store() {
 }
 
 fn test_index() {
-  Index(name: "name_idx", to_index_key: fn(key) { glindex.string(key) })
+  Index(
+    name: "name_idx",
+    to_index_key: fn(key) { glindex.string(key) },
+    index_key_decoder: decode.string,
+  )
 }
 
 pub fn store_open_cursor_test() -> Promise(Nil) {
@@ -136,12 +140,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
               cursor.Prev,
               option.None,
               fn(state, cur) {
-                case
-                  cursor.cursor_value(
-                    cur,
-                    decode.field("name", decode.string, decode.success),
-                  )
-                {
+                case cursor.cursor_value(cur) {
                   Ok(name) ->
                     promise.resolve(#(option.Some(name), cursor.stop()))
                   Error(_) -> promise.resolve(#(state, cursor.stop()))
@@ -150,7 +149,7 @@ pub fn store_open_cursor_prev_test() -> Promise(Nil) {
             )
           })
           |> promise.map(fn(result) {
-            let assert Ok(option.Some("Charlie")) = result
+            let assert Ok(option.Some(#(3, "Charlie"))) = result
 
             Ok(Nil)
           })
@@ -557,13 +556,7 @@ pub fn cursor_update_test() -> Promise(Nil) {
               cursor.Next,
               Nil,
               fn(_, cur) {
-                cursor.cursor_update(
-                  cur,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Updated")),
-                  ]),
-                )
+                cursor.cursor_update(cur, #(1, "Updated"))
                 |> promise.map(fn(_) { #(Nil, cursor.stop()) })
               },
             )
@@ -667,13 +660,7 @@ pub fn cursor_update_returns_ok_test() -> Promise(Nil) {
               cursor.Next,
               Nil,
               fn(_, cur) {
-                cursor.cursor_update(
-                  cur,
-                  glindex.object([
-                    #("id", glindex.int(1)),
-                    #("name", glindex.string("Updated")),
-                  ]),
-                )
+                cursor.cursor_update(cur, #(1, "Updated"))
                 |> promise.map(fn(result) {
                   let assert Ok(Nil) = result
                   #(Nil, cursor.stop())

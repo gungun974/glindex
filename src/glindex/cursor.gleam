@@ -31,7 +31,7 @@
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/javascript/promise.{type Promise}
-import glindex.{type ReadWrite, type Value}
+import glindex.{type ReadWrite}
 
 @internal
 pub type StoreCursor
@@ -58,28 +58,28 @@ pub type CursorDirection {
 /// Construct one with `continue`, `advance`, `stop`, or
 /// `continue_primary_key`.
 ///
-pub opaque type CursorNext(source) {
+pub opaque type CursorNext(source, p, k) {
   Continue
   Advance(Int)
-  ContinuePrimaryKey(key: Value, primary_key: Value)
+  ContinuePrimaryKey(key: k, primary_key: p)
   Stop
 }
 
 /// Advance to the next record in the current direction.
 ///
-pub fn continue() -> CursorNext(source) {
+pub fn continue() -> CursorNext(source, p, k) {
   Continue
 }
 
 /// Skip forward `n` records from the current position.
 ///
-pub fn advance(n: Int) -> CursorNext(source) {
+pub fn advance(n: Int) -> CursorNext(source, p, k) {
   Advance(n)
 }
 
 /// Stop iteration and return the current accumulator.
 ///
-pub fn stop() -> CursorNext(source) {
+pub fn stop() -> CursorNext(source, p, k) {
   Stop
 }
 
@@ -89,9 +89,9 @@ pub fn stop() -> CursorNext(source) {
 /// seeking within a sorted index without visiting every intermediate record.
 ///
 pub fn continue_primary_key(
-  key: Value,
-  primary_key: Value,
-) -> CursorNext(IndexCursor) {
+  key: k,
+  primary_key: p,
+) -> CursorNext(IndexCursor, p, k) {
   ContinuePrimaryKey(key:, primary_key:)
 }
 
@@ -103,7 +103,7 @@ pub type WithoutValue
 
 /// The cursor handle passed to your iteration handler.
 ///
-pub type Cursor(has_value, mode, source)
+pub type Cursor(has_value, mode, source, t, p, k)
 
 /// Errors that can occur inside a cursor handler.
 ///
@@ -115,7 +115,7 @@ pub type CursorError {
 /// Return the direction the cursor is walking.
 ///
 pub fn cursor_direction(
-  cursor: Cursor(value, mode, source),
+  cursor: Cursor(value, mode, source, t, p, k),
 ) -> CursorDirection {
   case cursor_direction_ffi(cursor) {
     "prev" -> Prev
@@ -126,16 +126,23 @@ pub fn cursor_direction(
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_direction")
-fn cursor_direction_ffi(cursor: Cursor(value, mode, source)) -> String
+fn cursor_direction_ffi(cursor: Cursor(value, mode, source, t, p, k)) -> String
 
 /// Return the key of the record at the current cursor position.
 ///
-pub fn cursor_key(cursor: Cursor(value, mode, source)) -> Value {
-  cursor_key_ffi(cursor)
+pub fn cursor_key(
+  cursor: Cursor(value, mode, source, t, p, k),
+) -> Result(k, CursorError) {
+  case decode.run(cursor_key_ffi(cursor), extract_cursor(cursor).2) {
+    Ok(v) -> Ok(v)
+    Error(e) -> Error(UnableToDecode(e))
+  }
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_key")
-fn cursor_key_ffi(cursor: Cursor(value, mode, source)) -> Value
+fn cursor_key_ffi(
+  cursor: Cursor(value, mode, source, t, p, k),
+) -> dynamic.Dynamic
 
 /// Return the primary key of the record at the current cursor position.
 ///
@@ -143,12 +150,24 @@ fn cursor_key_ffi(cursor: Cursor(value, mode, source)) -> Value
 /// is the underlying record key in the object store, which may differ from
 /// the indexed key.
 ///
-pub fn cursor_primary_key(cursor: Cursor(value, mode, source)) -> Value {
-  cursor_primary_key_ffi(cursor)
+pub fn cursor_primary_key(
+  cursor: Cursor(value, mode, source, t, p, k),
+) -> Result(p, CursorError) {
+  case decode.run(cursor_primary_key_ffi(cursor), extract_cursor(cursor).1) {
+    Ok(v) -> Ok(v)
+    Error(e) -> Error(UnableToDecode(e))
+  }
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_primary_key")
-fn cursor_primary_key_ffi(cursor: Cursor(value, mode, source)) -> Value
+fn cursor_primary_key_ffi(
+  cursor: Cursor(value, mode, source, t, p, k),
+) -> dynamic.Dynamic
+
+@external(javascript, "./cursor_ffi.mjs", "extract_cursor")
+fn extract_cursor(
+  cursor: Cursor(has_value, mode, source, t, p, k),
+) -> #(decode.Decoder(t), decode.Decoder(p), decode.Decoder(k))
 
 /// Decode and return the record at the current cursor position.
 ///
@@ -156,20 +175,21 @@ fn cursor_primary_key_ffi(cursor: Cursor(value, mode, source)) -> Value
 /// `index_open_cursor` (`WithValue`).
 ///
 pub fn cursor_value(
-  cursor: Cursor(WithValue, mode, source),
-  decoder: decode.Decoder(t),
+  cursor: Cursor(WithValue, mode, source, t, p, k),
 ) -> Result(t, CursorError) {
-  case decode.run(cursor_value_ffi(cursor), decoder) {
+  case decode.run(cursor_value_ffi(cursor), extract_cursor(cursor).0) {
     Ok(v) -> Ok(v)
     Error(e) -> Error(UnableToDecode(e))
   }
 }
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_value")
-fn cursor_value_ffi(cursor: Cursor(WithValue, mode, source)) -> dynamic.Dynamic
+fn cursor_value_ffi(
+  cursor: Cursor(WithValue, mode, source, t, p, k),
+) -> dynamic.Dynamic
 
 @internal
-pub fn is_continue(next: CursorNext(source)) -> Bool {
+pub fn is_continue(next: CursorNext(source, p, k)) -> Bool {
   case next {
     Continue -> True
     _ -> False
@@ -177,7 +197,7 @@ pub fn is_continue(next: CursorNext(source)) -> Bool {
 }
 
 @internal
-pub fn is_stop(next: CursorNext(source)) -> Bool {
+pub fn is_stop(next: CursorNext(source, p, k)) -> Bool {
   case next {
     Stop -> True
     _ -> False
@@ -185,7 +205,7 @@ pub fn is_stop(next: CursorNext(source)) -> Bool {
 }
 
 @internal
-pub fn is_advance(next: CursorNext(source)) -> Bool {
+pub fn is_advance(next: CursorNext(source, p, k)) -> Bool {
   case next {
     Advance(_) -> True
     _ -> False
@@ -193,13 +213,13 @@ pub fn is_advance(next: CursorNext(source)) -> Bool {
 }
 
 @internal
-pub fn advance_steps(next: CursorNext(source)) -> Int {
+pub fn advance_steps(next: CursorNext(source, p, k)) -> Int {
   let assert Advance(n) = next
   n
 }
 
 @internal
-pub fn is_continue_primary_key(next: CursorNext(source)) -> Bool {
+pub fn is_continue_primary_key(next: CursorNext(source, p, k)) -> Bool {
   case next {
     ContinuePrimaryKey(_, _) -> True
     _ -> False
@@ -207,9 +227,7 @@ pub fn is_continue_primary_key(next: CursorNext(source)) -> Bool {
 }
 
 @internal
-pub fn continue_primary_key_values(
-  next: CursorNext(source),
-) -> #(Value, Value) {
+pub fn continue_primary_key_values(next: CursorNext(source, p, k)) -> #(k, p) {
   let assert ContinuePrimaryKey(key, primary_key) = next
   #(key, primary_key)
 }
@@ -220,7 +238,7 @@ pub fn continue_primary_key_values(
 /// (`WithValue`).
 ///
 pub fn cursor_delete(
-  cursor: Cursor(WithValue, ReadWrite, source),
+  cursor: Cursor(WithValue, ReadWrite, source, t, p, k),
 ) -> Promise(Result(Nil, CursorError)) {
   cursor_delete_ffi(cursor)
   |> promise.map(fn(result) {
@@ -233,7 +251,7 @@ pub fn cursor_delete(
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_delete")
 fn cursor_delete_ffi(
-  cursor: Cursor(WithValue, ReadWrite, source),
+  cursor: Cursor(WithValue, ReadWrite, source, t, p, k),
 ) -> Promise(Result(Nil, String))
 
 /// Replace the record at the current cursor position with `value`.
@@ -242,8 +260,8 @@ fn cursor_delete_ffi(
 /// (`WithValue`). The key of the record does not change.
 ///
 pub fn cursor_update(
-  cursor: Cursor(WithValue, ReadWrite, source),
-  value: Value,
+  cursor: Cursor(WithValue, ReadWrite, source, t, p, k),
+  value: t,
 ) {
   cursor_update_ffi(cursor, value)
   |> promise.map(fn(result) {
@@ -256,6 +274,6 @@ pub fn cursor_update(
 
 @external(javascript, "./cursor_ffi.mjs", "cursor_update")
 fn cursor_update_ffi(
-  cursor: Cursor(WithValue, ReadWrite, source),
-  value: Value,
+  cursor: Cursor(WithValue, ReadWrite, source, t, p, k),
+  value: t,
 ) -> Promise(Result(Nil, String))

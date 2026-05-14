@@ -202,8 +202,8 @@ pub fn open_cursor(
   query: Query(i),
   direction: CursorDirection,
   initial: state,
-  handler: fn(state, Cursor(WithValue, rw, IndexCursor)) ->
-    Promise(#(state, CursorNext(IndexCursor))),
+  handler: fn(state, Cursor(WithValue, rw, IndexCursor, t, k, i)) ->
+    Promise(#(state, CursorNext(IndexCursor, k, i))),
 ) -> Promise(Result(state, TransactionError)) {
   open_cursor_ffi(tx, index, query, direction, initial, fn(state, cursor, next) {
     handler(state, cursor)
@@ -227,8 +227,8 @@ fn open_cursor_ffi(
   initial: state,
   handler: fn(
     state,
-    Cursor(WithValue, rw, IndexCursor),
-    fn(state, CursorNext(IndexCursor)) -> Nil,
+    Cursor(WithValue, rw, IndexCursor, t, k, i),
+    fn(state, CursorNext(IndexCursor, k, i)) -> Nil,
   ) -> Nil,
 ) -> Promise(Result(state, String))
 
@@ -243,8 +243,8 @@ pub fn open_key_cursor(
   query: Query(i),
   direction: CursorDirection,
   initial: state,
-  handler: fn(state, Cursor(WithoutValue, rw, IndexCursor)) ->
-    Promise(#(state, CursorNext(IndexCursor))),
+  handler: fn(state, Cursor(WithoutValue, rw, IndexCursor, t, k, i)) ->
+    Promise(#(state, CursorNext(IndexCursor, k, i))),
 ) -> Promise(Result(state, TransactionError)) {
   open_key_cursor_ffi(
     tx,
@@ -275,7 +275,7 @@ fn open_key_cursor_ffi(
   initial: state,
   handler: fn(
     state,
-    Cursor(WithoutValue, rw, IndexCursor),
-    fn(state, CursorNext(IndexCursor)) -> Nil,
+    Cursor(WithoutValue, rw, IndexCursor, t, k, i),
+    fn(state, CursorNext(IndexCursor, k, i)) -> Nil,
   ) -> Nil,
 ) -> Promise(Result(state, String))
