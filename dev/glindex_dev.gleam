@@ -4,7 +4,14 @@ import gleam/javascript/promise
 import glindex/database
 import glindex/upgrade
 
+@external(javascript, "./glindex_dev_ffi.mjs", "fake_indexeddb")
+pub fn fake_indexeddb() -> Nil
+
 pub fn main() -> Nil {
+  // This is needed to be able to test IndexedDB-dependent code in Node.js.
+  // You don't want to do that in a browser
+  fake_indexeddb()
+
   database.new("Music", 2)
   |> database.add_version(1, fn(tx) {
     let assert Ok(store) =
